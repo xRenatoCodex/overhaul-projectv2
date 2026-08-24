@@ -1,0 +1,17 @@
+export const clientesMineros: string[] = [
+  "Antamina",
+  "Marcobre",
+  "Cerro Verde",
+  "Southern Peru",
+  "Las Bambas",
+  "Yanacocha",
+  "Antapaccay",
+  "Toromocho",
+  "Constancia",
+  "Shougang Hierro Peru",
+  "Chinalco",
+  "Volcan",
+  "Buenaventura",
+  "El Brocal",
+  "Hudbay Peru",
+]

@@ -3,6 +3,8 @@
   "compilerOptions": {
     "paths": {
       "@/*": ["./*"],
+      "@workspace/backend": ["../../packages/backend/src/index.ts"],
+      "@workspace/backend/*": ["../../packages/backend/src/*"],
       "@workspace/ui/*": ["../../packages/ui/src/*"]
     },
     "plugins": [
