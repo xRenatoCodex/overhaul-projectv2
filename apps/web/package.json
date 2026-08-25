@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@mdxeditor/editor": "^4.2.1",
+    "@tabler/icons-react": "^3.46.0",
     "@workspace/backend": "*",
     "@workspace/ui": "*",
     "lucide-react": "^1.33.0",

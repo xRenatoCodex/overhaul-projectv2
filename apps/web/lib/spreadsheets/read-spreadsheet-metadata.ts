@@ -1,4 +1,6 @@
 export const MAX_SPREADSHEET_BYTES = 20 * 1024 * 1024
+export const MAX_SPREADSHEET_PREVIEW_ROWS = 12
+export const MAX_SPREADSHEET_PREVIEW_COLUMNS = 10
 
 export type SpreadsheetKind = "xlsx" | "csv"
 
@@ -7,6 +9,7 @@ export type SpreadsheetSheetMetadata = {
   rowCount: number
   columnCount: number
   headers: string[]
+  preview: string[][]
 }
 
 export type SpreadsheetMetadata = {
@@ -100,15 +103,24 @@ async function readCsvMetadata(file: File): Promise<SpreadsheetMetadata> {
 function summarizeRows(name: string, rows: unknown[][]): SpreadsheetSheetMetadata {
   const populatedRows = rows.filter((row) => row.some(isPopulatedCell))
   const firstRow = populatedRows[0] ?? []
+  const columnCount = populatedRows.reduce(
+    (maximum, row) => Math.max(maximum, row.length),
+    0,
+  )
 
   return {
     name,
     rowCount: populatedRows.length,
-    columnCount: populatedRows.reduce(
-      (maximum, row) => Math.max(maximum, row.length),
-      0,
-    ),
+    columnCount,
     headers: firstRow.map(toCellText).filter(Boolean).slice(0, 20),
+    preview: populatedRows
+      .slice(0, MAX_SPREADSHEET_PREVIEW_ROWS)
+      .map((row) =>
+        Array.from(
+          { length: Math.min(columnCount, MAX_SPREADSHEET_PREVIEW_COLUMNS) },
+          (_, columnIndex) => toCellText(row[columnIndex]),
+        ),
+      ),
   }
 }
 
