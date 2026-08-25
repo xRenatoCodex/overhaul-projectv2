@@ -22,9 +22,11 @@ import type {
   OverhaulTarifasData,
   TarifaGroupJob,
 } from "@workspace/backend/types/overhaul"
+import { SpreadsheetUpload } from "@/components/spreadsheet-upload"
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
 
 import { TarifaGroupsEditor } from "./tarifa-groups-editor"
+import { TarifaLoadDataModal } from "./tarifa-load-data-modal"
 
 export function TarifasForm({
   overhaulId,
@@ -41,6 +43,10 @@ export function TarifasForm({
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
 
+  // Modal state
+  const [loadFile, setLoadFile] = useState<File | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
+
   useUnsavedChanges(isDirty)
 
   function handleCurrencyChange(value: "USD" | "PEN") {
@@ -53,6 +59,18 @@ export function TarifasForm({
     setGroups(nextGroups)
     setIsDirty(true)
     setSuccess(false)
+  }
+
+  function handleLoadData(file: File) {
+    setLoadFile(file)
+    setModalOpen(true)
+  }
+
+  function handleModalImported(importedCurrency: "USD" | "PEN") {
+    setCurrency(importedCurrency)
+    setIsDirty(false)
+    setSuccess(false)
+    router.refresh()
   }
 
   function handleCancel() {
@@ -118,59 +136,96 @@ export function TarifasForm({
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      <Field className="max-w-48">
-        <FieldLabel>Moneda</FieldLabel>
-        <Select
-          value={currency}
-          onValueChange={(value) => handleCurrencyChange(value as "USD" | "PEN")}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Seleccionar moneda" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="USD">USD · Dólar</SelectItem>
-              <SelectItem value="PEN">PEN · Sol</SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      </Field>
-
-      <TarifaGroupsEditor
-        groups={groups}
-        currency={currency}
-        onChange={handleGroupsChange}
-      />
-
-      {error ? (
-        <Alert variant="destructive">
-          <AlertCircle />
-          <AlertTitle>No se pudo guardar</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+    <>
+      {loadFile ? (
+        <TarifaLoadDataModal
+          overhaulId={overhaulId}
+          file={loadFile}
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+          onImported={handleModalImported}
+        />
       ) : null}
 
-      {success ? (
-        <Alert>
-          <CheckCircle2 />
-          <AlertTitle>Tarifa guardada</AlertTitle>
-          <AlertDescription>
-            Los grupos, jobs y el resumen fueron actualizados.
-          </AlertDescription>
-        </Alert>
-      ) : null}
+      <div className="flex flex-col gap-8">
+        {/* Archivo de trabajo */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+          <div className="lg:w-64 lg:shrink-0">
+            <h2 className="text-base font-semibold">Archivo de trabajo</h2>
+            <p className="text-sm text-muted-foreground">
+              Revisa la estructura del XLSX antes de definir su importación.
+            </p>
+          </div>
+          <SpreadsheetUpload
+            allowedKinds={["xlsx"]}
+            label="Cargar XLSX"
+            className="min-w-0 flex-1"
+            onLoadData={handleLoadData}
+          />
+        </div>
 
-      <Separator />
+        <Separator />
 
-      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <Button type="button" variant="outline" onClick={handleCancel}>
-          Cancelar
-        </Button>
-        <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
-          {isSubmitting ? "Guardando..." : "Guardar tarifas"}
-        </Button>
+        <Field className="max-w-48">
+          <FieldLabel>Moneda</FieldLabel>
+          <Select
+            value={currency}
+            onValueChange={(value) => handleCurrencyChange(value as "USD" | "PEN")}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Seleccionar moneda" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="USD">USD · Dólar</SelectItem>
+                <SelectItem value="PEN">PEN · Sol</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <div>
+          <h2 className="text-base font-semibold">Grupos y jobs</h2>
+          <p className="text-sm text-muted-foreground">
+            Organiza los trabajos en grupos con sus costos y horas.
+          </p>
+        </div>
+
+        <TarifaGroupsEditor
+          groups={groups}
+          currency={currency}
+          onChange={handleGroupsChange}
+        />
+
+        {error ? (
+          <Alert variant="destructive">
+            <AlertCircle />
+            <AlertTitle>No se pudo guardar</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        {success ? (
+          <Alert>
+            <CheckCircle2 />
+            <AlertTitle>Tarifa guardada</AlertTitle>
+            <AlertDescription>
+              Los grupos, jobs y el resumen fueron actualizados.
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+        <Separator />
+
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <Button type="button" variant="outline" onClick={handleCancel}>
+            Cancelar
+          </Button>
+          <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? "Guardando..." : "Guardar tarifas"}
+          </Button>
+        </div>
       </div>
-    </div>
+    </>
   )
 }

@@ -282,15 +282,22 @@ export class PrismaOverhaulRepository implements IOverhaulRepository {
       }[stageKey]
 
       return [
-        {
-          overhaulId: overhaul.id,
-          proyecto: overhaul.necesidad.proyecto,
-          stage: stageKey,
-          version: stageData.version,
-          isCompleted: stageData.isCompleted,
-          updatedAt: stageData.updatedAt.toISOString(),
-        },
-      ]
+          {
+            overhaulId: overhaul.id,
+            proyecto: overhaul.necesidad.proyecto,
+            cliente: overhaul.necesidad.cliente,
+            ubicacion: overhaul.necesidad.ubicacion,
+            tallerDestino: overhaul.necesidad.tallerDestino,
+            estado: overhaul.state as OverhaulState,
+            fechaEstimada: overhaul.necesidad.fechaEstimada.toISOString(),
+            fechaTarifa: overhaul.necesidad.fechaTarifa.toISOString(),
+            stage: stageKey,
+            version: stageData.version,
+            isCompleted: stageData.isCompleted,
+            updatedAt: stageData.updatedAt.toISOString(),
+            createdAt: overhaul.createdAt.toISOString(),
+          },
+        ]
     })
   }
 

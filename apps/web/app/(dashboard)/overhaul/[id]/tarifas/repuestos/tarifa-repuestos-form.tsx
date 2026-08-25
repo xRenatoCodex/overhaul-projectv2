@@ -15,6 +15,7 @@ import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
 
+import { TarifaRepuestosImport } from "./tarifa-repuestos-import"
 import { TarifaRepuestosTable } from "./tarifa-repuestos-table"
 
 export function TarifaRepuestosForm({
@@ -111,6 +112,20 @@ export function TarifaRepuestosForm({
 
   return (
     <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h2 className="text-base font-semibold">Lista de partes</h2>
+          <p className="text-sm text-muted-foreground">
+            Revisa y edita las partes antes de guardar.
+          </p>
+        </div>
+        <TarifaRepuestosImport
+          onImport={(imported) => {
+            handleChange(imported as TarifaParte[])
+          }}
+        />
+      </div>
+
       <TarifaRepuestosTable partes={partes} onChange={handleChange} />
 
       {error ? (

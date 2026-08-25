@@ -9,7 +9,6 @@ import {
 } from "@workspace/backend"
 import type { OverhaulTarifasData } from "@workspace/backend/types/overhaul"
 import { Button } from "@workspace/ui/components/button"
-import { SpreadsheetUpload } from "@/components/spreadsheet-upload"
 
 import { TarifaSummary } from "./tarifa-summary"
 import { TarifasForm } from "./tarifas-form"
@@ -38,7 +37,7 @@ export default async function OverhaulTarifasPage({
   }
 
   return (
-    <section className="mx-auto w-full max-w-7xl space-y-8 pb-24">
+    <section className="mx-auto w-full max-w-7xl space-y-8 overflow-hidden pb-24">
       <div className="space-y-1">
         <p className="text-sm font-medium text-muted-foreground">Etapa 3 · Tarifas</p>
         <h1 className="text-2xl font-semibold tracking-tight">Construcción de tarifa</h1>
@@ -48,16 +47,6 @@ export default async function OverhaulTarifasPage({
       </div>
 
       <TarifaSummary tarifas={tarifas} />
-
-      <div className="space-y-3">
-        <div>
-          <h2 className="text-base font-semibold">Archivo de trabajo</h2>
-          <p className="text-sm text-muted-foreground">
-            Revisa la estructura del XLSX antes de definir su importación.
-          </p>
-        </div>
-        <SpreadsheetUpload allowedKinds={["xlsx"]} label="Cargar XLSX" />
-      </div>
 
       <TarifasForm overhaulId={id} initialTarifas={tarifas} />
 

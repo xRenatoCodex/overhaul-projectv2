@@ -36,7 +36,7 @@ const tarifaParteSchema = z.object({
   jobCode: z.string().trim().max(MAX_TEXT),
   parentPartName: z.string().trim().max(MAX_TEXT),
   groupNumber: z.string().trim().max(MAX_TEXT),
-  partNumber: textSchema,
+  partNumber: z.string().trim().max(MAX_TEXT),
   partNumberSap: z.string().trim().max(MAX_TEXT),
   partName: textSchema,
   quantity: nonNegativeNumberSchema.max(1_000_000),

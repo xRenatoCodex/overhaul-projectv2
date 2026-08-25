@@ -132,8 +132,15 @@ export type OverhaulPlanificacionData = StageVersion & {
 export type MonitorItem = {
   overhaulId: string
   proyecto: string
+  cliente: string
+  ubicacion: string
+  tallerDestino: string
+  estado: OverhaulState
+  fechaEstimada: string
+  fechaTarifa: string
   stage: OverhaulStage
   version: number
   isCompleted: boolean
   updatedAt: string
+  createdAt: string
 }
