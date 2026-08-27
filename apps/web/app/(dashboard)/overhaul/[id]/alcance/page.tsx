@@ -11,7 +11,7 @@ import type {
   OverhaulNecesidadData,
 } from "@workspace/backend/types/overhaul"
 
-import { AlcanceForm } from "./alcance-form"
+import { AlcanceForm } from "./components/alcance-form"
 
 export default async function OverhaulAlcancePage({
   params,
@@ -43,13 +43,13 @@ export default async function OverhaulAlcancePage({
     masterDataService.getOptions(),
     alcance.systems.length === 0
       ? masterDataService.getSystemsByModels(
-          necesidad.maquinas.map(({ model }) => model),
-        )
+        necesidad.maquinas.map(({ model }) => model),
+      )
       : Promise.resolve(alcance.systems),
   ])
 
   return (
-    <section className="mx-auto w-full max-w-5xl space-y-8">
+    <section className=" w-full h-auto space-y-8 pb-24">
       <div className="space-y-1">
         <p className="text-sm font-medium text-muted-foreground">Etapa 2 · Alcance</p>
         <h1 className="text-2xl font-semibold tracking-tight">Sistemas y componentes</h1>

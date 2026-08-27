@@ -2,15 +2,12 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { signIn } from "next-auth/react"
 
 import {
   firstValidationError,
 } from "@workspace/backend/lib/validators/common"
 import { loginRequestSchema } from "@workspace/backend/lib/validators/auth"
-import type {
-  LoginErrorResponse,
-  LoginResponse,
-} from "@workspace/backend/types/auth"
 import { Button } from "@workspace/ui/components/button"
 import {
   Field,
@@ -42,29 +39,19 @@ export function LoginForm() {
     setError(null)
     setIsSubmitting(true)
 
-    try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(parsed.data),
-      })
+    const result = await signIn("credentials", {
+      ...parsed.data,
+      redirect: false,
+    })
 
-      if (!response.ok) {
-        const result: LoginErrorResponse = await response.json()
-        throw new Error(result.message || "No se pudo iniciar sesion.")
-      }
-
-      const result: LoginResponse = await response.json()
-      void result
-      router.replace("/home")
-    } catch (submitError) {
-      setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "No se pudo iniciar sesion.",
-      )
+    if (result?.error) {
+      setError("Correo o contrasena incorrectos.")
       setIsSubmitting(false)
+      return
     }
+
+    router.replace("/home")
+    router.refresh()
   }
 
   return (

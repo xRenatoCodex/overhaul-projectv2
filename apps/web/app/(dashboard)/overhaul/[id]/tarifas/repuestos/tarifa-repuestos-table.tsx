@@ -7,8 +7,8 @@ import { Plus, Trash2 } from "lucide-react"
 import type { TarifaParte } from "@workspace/backend/types/overhaul"
 import { Button } from "@workspace/ui/components/button"
 import { DataTable } from "@workspace/ui/components/data-table"
+import { buildRepuestosColumns } from "../components/repuestos-columns";
 
-import { buildRepuestosColumns } from "../repuestos-columns"
 
 type Props = {
   partes: TarifaParte[]

@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 import { PackageSearch } from "lucide-react"
 
 import {
@@ -10,8 +10,13 @@ import {
 import type { OverhaulTarifasData } from "@workspace/backend/types/overhaul"
 import { Button } from "@workspace/ui/components/button"
 
-import { TarifaSummary } from "./tarifa-summary"
-import { TarifasForm } from "./tarifas-form"
+import { TarifaSummary } from "./components/tarifa-summary"
+import { TarifasForm } from "./components/tarifas-form"
+import {
+  getBlockedStageRedirect,
+  getStageAccess,
+  type StageAccess,
+} from "../stage-access"
 
 export default async function OverhaulTarifasPage({
   params,
@@ -20,11 +25,26 @@ export default async function OverhaulTarifasPage({
 }) {
   const { id } = await params
 
-  await ensureBackendSeeded()
+  let stageAccess: StageAccess
+
+  try {
+    stageAccess = await getStageAccess(id)
+  } catch (error) {
+    if (error instanceof NotFoundError) {
+      notFound()
+    }
+    throw error
+  }
+
+  const blockedRedirect = getBlockedStageRedirect(id, "tarifas", stageAccess)
+  if (blockedRedirect) {
+    redirect(blockedRedirect)
+  }
 
   let tarifas: OverhaulTarifasData
 
   try {
+    await ensureBackendSeeded()
     tarifas = (await overhaulService.getStageData(
       id,
       "tarifas",
@@ -37,7 +57,7 @@ export default async function OverhaulTarifasPage({
   }
 
   return (
-    <section className="mx-auto w-full max-w-7xl space-y-8 overflow-hidden pb-24">
+    <section className=" w-full h-auto space-y-8 pb-24">
       <div className="space-y-1">
         <p className="text-sm font-medium text-muted-foreground">Etapa 3 · Tarifas</p>
         <h1 className="text-2xl font-semibold tracking-tight">Construcción de tarifa</h1>

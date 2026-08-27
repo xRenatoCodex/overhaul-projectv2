@@ -6,6 +6,7 @@ import type {
   OverhaulTarifasData,
   OverhaulStage,
   UpdateAlcanceInput,
+  UpdatePropuestaInput,
   UpdateTarifaRepuestosInput,
   UpdateTarifasInput,
 } from "@workspace/backend/types/overhaul"
@@ -16,7 +17,9 @@ export interface IAuthService {
 
 export interface IOverhaulService {
   createNecesidad(input: CreateNecesidadInput): Promise<{ id: string }>
+  updateNecesidad(id: string, input: CreateNecesidadInput): Promise<{ id: string }>
   updateAlcance(id: string, input: UpdateAlcanceInput): Promise<{ id: string }>
+  updatePropuesta(id: string, input: UpdatePropuestaInput): Promise<{ id: string }>
   updateTarifas(
     id: string,
     input: UpdateTarifasInput,

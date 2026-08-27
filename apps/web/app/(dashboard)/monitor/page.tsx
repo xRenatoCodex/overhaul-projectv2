@@ -29,7 +29,7 @@ export default async function ComercialMonitorPage() {
     >
       <MonitorTable
         items={items}
-        hrefTemplate="/overhaul/{id}/alcance"
+        hrefTemplate="/monitor/{id}/alcance"
       />
     </SectionContent>
   )

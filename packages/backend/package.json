@@ -25,6 +25,7 @@
     "./entities/*": "./src/entities/*.ts",
     "./interfaces/*": "./src/interfaces/*.ts",
     "./lib/*": "./src/lib/*.ts",
+    "./metrics/*": "./src/metrics/*.ts",
     "./repositories/*": "./src/repositories/*.ts",
     "./services/*": "./src/services/*.ts",
     "./types/*": "./src/types/*.ts",

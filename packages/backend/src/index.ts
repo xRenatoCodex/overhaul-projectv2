@@ -7,6 +7,7 @@ import { AuthService } from "@workspace/backend/services/auth-service"
 import { DashboardService } from "@workspace/backend/services/dashboard-service"
 import { MasterDataService } from "@workspace/backend/services/master-data-service"
 import { OverhaulService } from "@workspace/backend/services/overhaul-service"
+import { MetricsService } from "@workspace/backend/metrics/metrics-service"
 import type { CreateNecesidadInput } from "@workspace/backend/types/overhaul"
 
 const seedNecesidad: CreateNecesidadInput = {
@@ -26,6 +27,7 @@ export const authService = new AuthService(userRepository)
 export const overhaulService = new OverhaulService(overhaulRepository)
 export const dashboardService = new DashboardService(overhaulRepository)
 export const masterDataService = new MasterDataService(prisma)
+export const metricsService = new MetricsService(prisma)
 let seedPromise: Promise<void> | undefined
 
 export async function ensureBackendSeeded(): Promise<void> {
@@ -58,7 +60,7 @@ async function seedBackendData(): Promise<void> {
       },
       alcance: { create: { resumen: "", systems: [] } },
       tarifas: { create: { currency: Currency.USD, total: 0 } },
-      propuesta: { create: { documento: "" } },
+      propuesta: { create: {} },
       planificacion: { create: {} },
     },
   })
@@ -71,6 +73,8 @@ export * from "@workspace/backend/interfaces/services"
 export * from "@workspace/backend/lib/prisma"
 export * from "@workspace/backend/services/master-data-service"
 export * from "@workspace/backend/services/errors"
+export * from "@workspace/backend/metrics/types"
+export * from "@workspace/backend/metrics/metrics-service"
 export * from "@workspace/backend/types/auth"
 export * from "@workspace/backend/types/overhaul"
 export * from "@workspace/backend/lib/validators/common"

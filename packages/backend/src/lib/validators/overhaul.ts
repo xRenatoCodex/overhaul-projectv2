@@ -1,4 +1,4 @@
-import { z } from "zod"
+import { string, z } from "zod"
 
 const nonEmptyString = (label: string) =>
   z.string().trim().min(1, `${label} es requerido`)
@@ -40,8 +40,8 @@ export const componentStateSchema = z.enum([
 const alcanceComponentSchema = z.object({
   name: nonEmptyString("El nombre del componente").max(200),
   state: componentStateSchema,
-  taller: optionalString,
-  atencion: optionalString,
+  taller: z.string().trim().max(200),
+  atencion: z.string().trim().max(200),
   comentarios: optionalString,
 })
 
@@ -58,6 +58,31 @@ export const updateAlcanceSchema = z.object({
     .min(1, "Añade al menos un sistema con un componente"),
 })
 
+const proposalListSchema = z.array(z.string().trim().min(1).max(2_000))
+
+export const updatePropuestaSchema = z.object({
+  emision: dateStringSchema,
+  contacto: z.object({
+    name: nonEmptyString("El nombre del contacto").max(200),
+    location: nonEmptyString("La ubicación del contacto").max(200),
+    phone: optionalString,
+    email: z.string().trim().email("Correo inválido").optional().or(z.literal("")),
+  }),
+  condiciones: proposalListSchema,
+  inclusionesExclusiones: z.array(
+    z.object({
+      system: nonEmptyString("El sistema").max(200),
+      components: proposalListSchema,
+      inclusiones: proposalListSchema,
+      exclusiones: proposalListSchema,
+    }),
+  ),
+  fechaReparacion: dateStringSchema,
+  terminosGenerales: nonEmptyString("Los términos generales").max(10_000),
+  garantias: nonEmptyString("Las garantías").max(10_000),
+  propuestaUri: z.string().trim().max(7_000_000),
+})
+
 type MasterDataValues = {
   talleres: string[]
   atenciones: string[]
@@ -72,7 +97,7 @@ export function createUpdateAlcanceSchemaWithMasterData(
   return updateAlcanceSchema.superRefine((payload, context) => {
     payload.systems.forEach((system, systemIndex) => {
       system.components.forEach((component, componentIndex) => {
-        if (component.taller && !talleres.has(component.taller)) {
+        if (!component.taller || !talleres.has(component.taller)) {
           context.addIssue({
             code: "custom",
             message: "Taller no existe en datos maestros",
@@ -80,7 +105,7 @@ export function createUpdateAlcanceSchemaWithMasterData(
           })
         }
 
-        if (component.atencion && !atenciones.has(component.atencion)) {
+        if (!component.atencion || !atenciones.has(component.atencion)) {
           context.addIssue({
             code: "custom",
             message: "Atención no existe en datos maestros",

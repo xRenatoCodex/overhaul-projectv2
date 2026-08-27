@@ -27,6 +27,7 @@ export type CreateNecesidadInput = {
 export type StageVersion = {
   version: number
   isCompleted: boolean
+  completedAt: string | null
   updatedAt: string
 }
 
@@ -120,9 +121,35 @@ export type UpdateTarifaRepuestosInput = {
   partes: TarifaParte[]
 }
 
-export type OverhaulPropuestaData = StageVersion & {
-  documento: string
+export type PropuestaContact = {
+  name: string
+  location: string
+  phone?: string
+  email?: string
 }
+
+export type PropuestaInclusionExclusion = {
+  system: string
+  components: string[]
+  inclusiones: string[]
+  exclusiones: string[]
+}
+
+export type OverhaulPropuestaData = StageVersion & {
+  emision: string
+  contacto: PropuestaContact
+  condiciones: string[]
+  inclusionesExclusiones: PropuestaInclusionExclusion[]
+  fechaReparacion: string
+  terminosGenerales: string
+  garantias: string
+  propuestaUri: string
+}
+
+export type UpdatePropuestaInput = Omit<
+  OverhaulPropuestaData,
+  keyof StageVersion
+>
 
 export type OverhaulPlanificacionData = StageVersion & {
   fechaInicio: string

@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Check, Plus, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 
 import { firstValidationError } from "@workspace/backend/lib/validators/common"
 import { createUpdateAlcanceSchemaWithMasterData } from "@workspace/backend/lib/validators/overhaul"
@@ -16,7 +17,7 @@ import type {
   ComponentState,
 } from "@workspace/backend/types/overhaul"
 
-import { MarkdownCommentDialog } from "./markdown-comment-dialog"
+import { MarkdownCommentDialog } from "../components/markdown-comment-dialog"
 
 const componentStates: { value: ComponentState; label: string }[] = [
   { value: "Nuevo", label: "Nuevo" },
@@ -89,11 +90,11 @@ export function AlcanceForm({
       current.map((system, index) =>
         index === systemIndex
           ? {
-              ...system,
-              components: system.components.filter(
-                (_, componentIdx) => componentIdx !== componentIndex,
-              ),
-            }
+            ...system,
+            components: system.components.filter(
+              (_, componentIdx) => componentIdx !== componentIndex,
+            ),
+          }
           : system,
       ),
     )
@@ -109,17 +110,18 @@ export function AlcanceForm({
       current.map((system, index) =>
         index === systemIndex
           ? {
-              ...system,
-              components: system.components.map((component, componentIdx) =>
-                componentIdx === componentIndex
-                  ? { ...component, [field]: value }
-                  : component,
-              ),
-            }
+            ...system,
+            components: system.components.map((component, componentIdx) =>
+              componentIdx === componentIndex
+                ? { ...component, [field]: value }
+                : component,
+            ),
+          }
           : system,
       ),
     )
   }
+
 
   async function handleSubmit() {
     setError("")
@@ -148,6 +150,8 @@ export function AlcanceForm({
     }).safeParse(payload)
     if (!parsed.success) {
       setError(firstValidationError(parsed.error))
+      toast.error("Error al Guardar", { description: firstValidationError(parsed.error), position: "top-center", richColors: true, })
+
       return
     }
 
@@ -163,6 +167,8 @@ export function AlcanceForm({
       const result = await response.json()
 
       if (!response.ok) {
+        toast.error("Error al Guardar", { description: error, position: "top-center", richColors: true, })
+
         throw new Error(result.message ?? "No se pudo guardar el alcance.")
       }
 
@@ -180,7 +186,7 @@ export function AlcanceForm({
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 w-full">
       {systems.map((system, systemIndex) => (
         <div key={systemIndex} className="space-y-4">
           <div className="flex items-center gap-3">
@@ -222,7 +228,7 @@ export function AlcanceForm({
               <tbody>
                 {system.components.map((component, componentIndex) => (
                   <tr key={componentIndex} className="border-b last:border-b-0">
-                    <td className="p-2 align-top">
+                    <td className="p-2 align-center">
                       <Input
                         aria-label="Nombre del componente"
                         value={component.name}
@@ -241,7 +247,7 @@ export function AlcanceForm({
                       const isSelected = component.state === option.value
 
                       return (
-                        <td key={option.value} className="p-1 text-center align-top">
+                        <td key={option.value} className="p-1 text-center align-center">
                           <button
                             type="button"
                             aria-label={`Estado ${option.label}`}

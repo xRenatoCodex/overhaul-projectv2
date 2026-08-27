@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 
 import {
@@ -12,8 +12,13 @@ import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { SpreadsheetUpload } from "@/components/spreadsheet-upload"
 
-import { formatMoney } from "../tarifa-summary"
 import { TarifaRepuestosForm } from "./tarifa-repuestos-form"
+import {
+  getBlockedStageRedirect,
+  getStageAccess,
+  type StageAccess,
+} from "../../stage-access"
+import { formatMoney } from "../components/tarifa-summary";
 
 export default async function TarifaRepuestosPage({
   params,
@@ -22,11 +27,26 @@ export default async function TarifaRepuestosPage({
 }) {
   const { id } = await params
 
-  await ensureBackendSeeded()
+  let stageAccess: StageAccess
+
+  try {
+    stageAccess = await getStageAccess(id)
+  } catch (error) {
+    if (error instanceof NotFoundError) {
+      notFound()
+    }
+    throw error
+  }
+
+  const blockedRedirect = getBlockedStageRedirect(id, "tarifas", stageAccess)
+  if (blockedRedirect) {
+    redirect(blockedRedirect)
+  }
 
   let tarifas: OverhaulTarifasData
 
   try {
+    await ensureBackendSeeded()
     tarifas = (await overhaulService.getStageData(
       id,
       "tarifas",

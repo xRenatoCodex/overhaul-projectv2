@@ -1,47 +1,43 @@
 import { NextResponse } from "next/server"
 
 import {
-  authService,
   ensureBackendSeeded,
   firstValidationError,
-  UnauthorizedError,
+  NotFoundError,
+  overhaulService,
 } from "@workspace/backend"
-import { loginRequestSchema } from "@workspace/backend/lib/validators/auth"
-import type {
-  LoginErrorResponse,
-  LoginResponse,
-} from "@workspace/backend/types/auth"
+import { createNecesidadSchema } from "@workspace/backend/lib/validators/overhaul"
 
-export async function POST(request: Request) {
+export async function PATCH(
+  request: Request,
+  context: { params: Promise<{ id: string }> },
+) {
   await ensureBackendSeeded()
+  const { id } = await context.params
   const body = await readJson(request)
 
   if (!body.success) {
-    return NextResponse.json<LoginErrorResponse>(
+    return NextResponse.json(
       { message: "El cuerpo de la solicitud no es JSON válido" },
       { status: 400 },
     )
   }
 
-  const parsed = loginRequestSchema.safeParse(body.data)
+  const parsed = createNecesidadSchema.safeParse(body.data)
   if (!parsed.success) {
-    return NextResponse.json<LoginErrorResponse>(
+    return NextResponse.json(
       { message: firstValidationError(parsed.error) },
       { status: 400 },
     )
   }
 
   try {
-    const result = await authService.login(parsed.data)
-    return NextResponse.json<LoginResponse>(result)
+    const result = await overhaulService.updateNecesidad(id, parsed.data)
+    return NextResponse.json(result)
   } catch (error) {
-    if (error instanceof UnauthorizedError) {
-      return NextResponse.json<LoginErrorResponse>(
-        { message: error.message },
-        { status: 401 },
-      )
+    if (error instanceof NotFoundError) {
+      return NextResponse.json({ message: error.message }, { status: 404 })
     }
-
     throw error
   }
 }

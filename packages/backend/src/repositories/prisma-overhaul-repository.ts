@@ -9,6 +9,9 @@ import type {
   MachineRequirement,
   MonitorItem,
   OverhaulStage,
+  OverhaulState,
+  PropuestaContact,
+  PropuestaInclusionExclusion,
 } from "@workspace/backend/types/overhaul"
 
 const monitorStageByArea: Record<DomainArea, OverhaulStage> = {
@@ -58,7 +61,7 @@ export class PrismaOverhaulRepository implements IOverhaulRepository {
         },
         alcance: { create: { resumen: "", systems: [] } },
         tarifas: { create: { currency: Currency.USD, total: 0 } },
-        propuesta: { create: { documento: "" } },
+        propuesta: { create: {} },
         planificacion: { create: {} },
       },
       include: overhaulWithStages,
@@ -106,6 +109,9 @@ export class PrismaOverhaulRepository implements IOverhaulRepository {
             maquinas: overhaul.stages.necesidad.maquinas,
             version: overhaul.stages.necesidad.version,
             isCompleted: overhaul.stages.necesidad.isCompleted,
+            completedAt: overhaul.stages.necesidad.completedAt
+              ? new Date(overhaul.stages.necesidad.completedAt)
+              : null,
             updatedAt: new Date(overhaul.stages.necesidad.updatedAt),
           },
         },
@@ -115,6 +121,9 @@ export class PrismaOverhaulRepository implements IOverhaulRepository {
             systems: overhaul.stages.alcance.systems,
             version: overhaul.stages.alcance.version,
             isCompleted: overhaul.stages.alcance.isCompleted,
+            completedAt: overhaul.stages.alcance.completedAt
+              ? new Date(overhaul.stages.alcance.completedAt)
+              : null,
             updatedAt: new Date(overhaul.stages.alcance.updatedAt),
           },
         },
@@ -127,14 +136,32 @@ export class PrismaOverhaulRepository implements IOverhaulRepository {
             total: overhaul.stages.tarifas.total,
             version: overhaul.stages.tarifas.version,
             isCompleted: overhaul.stages.tarifas.isCompleted,
+            completedAt: overhaul.stages.tarifas.completedAt
+              ? new Date(overhaul.stages.tarifas.completedAt)
+              : null,
             updatedAt: new Date(overhaul.stages.tarifas.updatedAt),
           },
         },
         propuesta: {
           update: {
-            documento: overhaul.stages.propuesta.documento,
+            emision: overhaul.stages.propuesta.emision
+              ? new Date(overhaul.stages.propuesta.emision)
+              : null,
+            contacto: overhaul.stages.propuesta.contacto,
+            condiciones: overhaul.stages.propuesta.condiciones,
+            inclusionesExclusiones:
+              overhaul.stages.propuesta.inclusionesExclusiones,
+            fechaReparacion: overhaul.stages.propuesta.fechaReparacion
+              ? new Date(overhaul.stages.propuesta.fechaReparacion)
+              : null,
+            terminosGenerales: overhaul.stages.propuesta.terminosGenerales,
+            garantias: overhaul.stages.propuesta.garantias,
+            propuestaUri: overhaul.stages.propuesta.propuestaUri,
             version: overhaul.stages.propuesta.version,
             isCompleted: overhaul.stages.propuesta.isCompleted,
+            completedAt: overhaul.stages.propuesta.completedAt
+              ? new Date(overhaul.stages.propuesta.completedAt)
+              : null,
             updatedAt: new Date(overhaul.stages.propuesta.updatedAt),
           },
         },
@@ -148,6 +175,9 @@ export class PrismaOverhaulRepository implements IOverhaulRepository {
               : null,
             version: overhaul.stages.planificacion.version,
             isCompleted: overhaul.stages.planificacion.isCompleted,
+            completedAt: overhaul.stages.planificacion.completedAt
+              ? new Date(overhaul.stages.planificacion.completedAt)
+              : null,
             updatedAt: new Date(overhaul.stages.planificacion.updatedAt),
           },
         },
@@ -166,6 +196,7 @@ export class PrismaOverhaulRepository implements IOverhaulRepository {
           total: tarifas.total,
           version: tarifas.version,
           isCompleted: tarifas.isCompleted,
+          completedAt: tarifas.completedAt ? new Date(tarifas.completedAt) : null,
           updatedAt: new Date(tarifas.updatedAt),
         },
       })
@@ -209,6 +240,7 @@ export class PrismaOverhaulRepository implements IOverhaulRepository {
         data: {
           version: tarifas.version,
           isCompleted: tarifas.isCompleted,
+          completedAt: tarifas.completedAt ? new Date(tarifas.completedAt) : null,
           updatedAt: new Date(tarifas.updatedAt),
         },
       })
@@ -328,6 +360,9 @@ export class PrismaOverhaulRepository implements IOverhaulRepository {
           maquinas: overhaul.necesidad.maquinas as MachineRequirement[],
           version: overhaul.necesidad.version,
           isCompleted: overhaul.necesidad.isCompleted,
+          completedAt: overhaul.necesidad.completedAt
+            ? overhaul.necesidad.completedAt.toISOString()
+            : null,
           createdAt: overhaul.necesidad.createdAt.toISOString(),
           updatedAt: overhaul.necesidad.updatedAt.toISOString(),
         },
@@ -336,6 +371,9 @@ export class PrismaOverhaulRepository implements IOverhaulRepository {
           systems: overhaul.alcance.systems as AlcanceSystem[],
           version: overhaul.alcance.version,
           isCompleted: overhaul.alcance.isCompleted,
+          completedAt: overhaul.alcance.completedAt
+            ? overhaul.alcance.completedAt.toISOString()
+            : null,
           updatedAt: overhaul.alcance.updatedAt.toISOString(),
         },
         tarifas: {
@@ -378,12 +416,30 @@ export class PrismaOverhaulRepository implements IOverhaulRepository {
           })),
           version: overhaul.tarifas.version,
           isCompleted: overhaul.tarifas.isCompleted,
+          completedAt: overhaul.tarifas.completedAt
+            ? overhaul.tarifas.completedAt.toISOString()
+            : null,
           updatedAt: overhaul.tarifas.updatedAt.toISOString(),
         },
         propuesta: {
-          documento: overhaul.propuesta.documento,
+          emision: overhaul.propuesta.emision
+            ? overhaul.propuesta.emision.toISOString()
+            : "",
+          contacto: overhaul.propuesta.contacto as PropuestaContact,
+          condiciones: overhaul.propuesta.condiciones,
+          inclusionesExclusiones:
+            overhaul.propuesta.inclusionesExclusiones as PropuestaInclusionExclusion[],
+          fechaReparacion: overhaul.propuesta.fechaReparacion
+            ? overhaul.propuesta.fechaReparacion.toISOString()
+            : "",
+          terminosGenerales: overhaul.propuesta.terminosGenerales,
+          garantias: overhaul.propuesta.garantias,
+          propuestaUri: overhaul.propuesta.propuestaUri,
           version: overhaul.propuesta.version,
           isCompleted: overhaul.propuesta.isCompleted,
+          completedAt: overhaul.propuesta.completedAt
+            ? overhaul.propuesta.completedAt.toISOString()
+            : null,
           updatedAt: overhaul.propuesta.updatedAt.toISOString(),
         },
         planificacion: {
@@ -395,6 +451,9 @@ export class PrismaOverhaulRepository implements IOverhaulRepository {
             : "",
           version: overhaul.planificacion.version,
           isCompleted: overhaul.planificacion.isCompleted,
+          completedAt: overhaul.planificacion.completedAt
+            ? overhaul.planificacion.completedAt.toISOString()
+            : null,
           updatedAt: overhaul.planificacion.updatedAt.toISOString(),
         },
       },

@@ -9,6 +9,7 @@ import type {
   OverhaulTarifasData,
   StageVersion,
   UpdateAlcanceInput,
+  UpdatePropuestaInput,
   UpdateTarifaRepuestosInput,
   UpdateTarifasInput,
 } from "@workspace/backend/types/overhaul"
@@ -40,12 +41,14 @@ export class OverhaulEntity {
         ...input,
         version: 1,
         isCompleted: false,
+        completedAt: null,
         createdAt: now,
         updatedAt: now,
       },
       alcance: {
         version: 1,
         isCompleted: false,
+        completedAt: null,
         updatedAt: now,
         resumen: "",
         systems: [],
@@ -53,6 +56,7 @@ export class OverhaulEntity {
       tarifas: {
         version: 1,
         isCompleted: false,
+        completedAt: null,
         updatedAt: now,
         currency: "USD",
         total: 0,
@@ -62,12 +66,21 @@ export class OverhaulEntity {
       propuesta: {
         version: 1,
         isCompleted: false,
+        completedAt: null,
         updatedAt: now,
-        documento: "",
+        emision: "",
+        contacto: { name: "", location: "" },
+        condiciones: [],
+        inclusionesExclusiones: [],
+        fechaReparacion: "",
+        terminosGenerales: "",
+        garantias: "",
+        propuestaUri: "",
       },
       planificacion: {
         version: 1,
         isCompleted: false,
+        completedAt: null,
         updatedAt: now,
         fechaInicio: "",
         fechaFin: "",
@@ -85,6 +98,7 @@ export class OverhaulEntity {
       ...input,
       version: currentVersion,
       isCompleted: false,
+      completedAt: null,
       createdAt: this.stages.necesidad.createdAt,
       updatedAt: now,
     }
@@ -99,9 +113,22 @@ export class OverhaulEntity {
       systems: input.systems,
       version: currentVersion,
       isCompleted: false,
+      completedAt: null,
       updatedAt: now,
     }
     this.invalidateDownstreamFrom("alcance", now)
+    this.updatedAt = now
+  }
+
+  public updatePropuesta(input: UpdatePropuestaInput, now: string): void {
+    this.stages.propuesta = {
+      ...input,
+      version: this.stages.propuesta.version + 1,
+      isCompleted: false,
+      completedAt: null,
+      updatedAt: now,
+    }
+    this.invalidateDownstreamFrom("propuesta", now)
     this.updatedAt = now
   }
 
@@ -124,6 +151,7 @@ export class OverhaulEntity {
       total: Math.round((total + Number.EPSILON) * 100) / 100,
       version: this.stages.tarifas.version + 1,
       isCompleted: false,
+      completedAt: null,
       updatedAt: now,
     }
     this.invalidateDownstreamFrom("tarifas", now)
@@ -139,6 +167,7 @@ export class OverhaulEntity {
       partes: input.partes,
       version: this.stages.tarifas.version + 1,
       isCompleted: false,
+      completedAt: null,
       updatedAt: now,
     }
     this.invalidateDownstreamFrom("tarifas", now)
@@ -148,6 +177,7 @@ export class OverhaulEntity {
   public markStageCompleted(stage: OverhaulStage, now: string): void {
     const stageData = this.stages[stage] as StageVersion
     stageData.isCompleted = true
+    stageData.completedAt = now
     stageData.updatedAt = now
     this.updatedAt = now
   }
@@ -169,6 +199,7 @@ export class OverhaulEntity {
       }
       const stageData = this.stages[targetStage] as StageVersion
       stageData.isCompleted = false
+      stageData.completedAt = null
       stageData.updatedAt = now
     }
   }

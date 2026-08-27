@@ -9,6 +9,7 @@ import type {
   SortingState,
   VisibilityState,
 } from "@tanstack/react-table"
+
 import {
   flexRender,
   getCoreRowModel,
@@ -100,7 +101,6 @@ export function DataTable<TData>({
     data,
     columns,
     filterFns: { global: globalFilterFn },
-    globalFilterFn: "global",
     state: { sorting, columnFilters, globalFilter, columnVisibility },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,

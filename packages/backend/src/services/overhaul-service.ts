@@ -4,6 +4,7 @@ import type {
   CreateNecesidadInput,
   OverhaulStage,
   UpdateAlcanceInput,
+  UpdatePropuestaInput,
   UpdateTarifaRepuestosInput,
   UpdateTarifasInput,
 } from "@workspace/backend/types/overhaul"
@@ -19,6 +20,19 @@ export class OverhaulService implements IOverhaulService {
     return { id: overhaul.id }
   }
 
+  public async updateNecesidad(
+    id: string,
+    input: CreateNecesidadInput,
+  ): Promise<{ id: string }> {
+    const overhaul = await this.getOverhaul(id)
+    const now = new Date().toISOString()
+
+    overhaul.updateNecesidad(input, now)
+    await this.overhaulRepository.save(overhaul)
+
+    return { id: overhaul.id }
+  }
+
   public async updateAlcance(
     id: string,
     input: UpdateAlcanceInput,
@@ -28,15 +42,33 @@ export class OverhaulService implements IOverhaulService {
       throw new NotFoundError("Overhaul no encontrado")
     }
 
-    overhaul.updateAlcance(input, new Date().toISOString())
+    const now = new Date().toISOString()
+    overhaul.updateAlcance(input, now)
+    overhaul.markStageCompleted("alcance", now)
     await this.overhaulRepository.save(overhaul)
+    return { id: overhaul.id }
+  }
+
+  public async updatePropuesta(
+    id: string,
+    input: UpdatePropuestaInput,
+  ): Promise<{ id: string }> {
+    const overhaul = await this.getOverhaul(id)
+    const now = new Date().toISOString()
+
+    overhaul.updatePropuesta(input, now)
+    overhaul.markStageCompleted("propuesta", now)
+    await this.overhaulRepository.save(overhaul)
+
     return { id: overhaul.id }
   }
 
   public async updateTarifas(id: string, input: UpdateTarifasInput) {
     const overhaul = await this.getOverhaul(id)
 
-    overhaul.updateTarifas(input, new Date().toISOString())
+    const now = new Date().toISOString()
+    overhaul.updateTarifas(input, now)
+    overhaul.markStageCompleted("tarifas", now)
     await this.overhaulRepository.saveTarifas(overhaul)
 
     return { id: overhaul.id, tarifas: overhaul.stages.tarifas }
@@ -48,7 +80,9 @@ export class OverhaulService implements IOverhaulService {
   ) {
     const overhaul = await this.getOverhaul(id)
 
-    overhaul.updateTarifaRepuestos(input, new Date().toISOString())
+    const now = new Date().toISOString()
+    overhaul.updateTarifaRepuestos(input, now)
+    overhaul.markStageCompleted("tarifas", now)
     await this.overhaulRepository.saveTarifaRepuestos(overhaul)
 
     return { id: overhaul.id, tarifas: overhaul.stages.tarifas }
