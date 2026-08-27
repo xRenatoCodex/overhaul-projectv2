@@ -40,16 +40,16 @@ model Overhaul {
   state         OverhaulState          @default(definicion)
   createdAt     DateTime               @default(now())
   updatedAt     DateTime               @updatedAt
-  necesidad     OverhaulNecesidad?
-  alcance       OverhaulAlcance?
-  tarifas       OverhaulTarifas?
-  propuesta     OverhaulPropuesta?
-  planificacion OverhaulPlanificacion?
+  necesidad     OverhaulNecesidad[]
+  alcance       OverhaulAlcance[]
+  tarifas       OverhaulTarifas[]
+  propuesta     OverhaulPropuesta[]
+  planificacion OverhaulPlanificacion[]
 }
 
 model OverhaulNecesidad {
   id            String    @id @default(cuid())
-  overhaulId    String    @unique
+  overhaulId    String
   overhaul      Overhaul  @relation(fields: [overhaulId], references: [id], onDelete: Cascade)
   proyecto      String
   cliente       String
@@ -63,11 +63,13 @@ model OverhaulNecesidad {
   completedAt   DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  @@index([overhaulId, version])
 }
 
 model OverhaulAlcance {
   id          String    @id @default(cuid())
-  overhaulId  String    @unique
+  overhaulId  String
   overhaul    Overhaul  @relation(fields: [overhaulId], references: [id], onDelete: Cascade)
   resumen     String    @default("")
   systems     Json      @default("[]")
@@ -75,11 +77,13 @@ model OverhaulAlcance {
   isCompleted Boolean   @default(false)
   completedAt DateTime?
   updatedAt   DateTime  @updatedAt
+
+  @@index([overhaulId, version])
 }
 
 model OverhaulTarifas {
   id          String                   @id @default(cuid())
-  overhaulId  String                   @unique
+  overhaulId  String
   overhaul    Overhaul                 @relation(fields: [overhaulId], references: [id], onDelete: Cascade)
   currency    Currency                 @default(USD)
   total       Decimal                  @default(0) @db.Decimal(18, 2)
@@ -90,6 +94,8 @@ model OverhaulTarifas {
   completedAt DateTime?
   createdAt   DateTime                 @default(now())
   updatedAt   DateTime                 @updatedAt
+
+  @@index([overhaulId, version])
 }
 
 model OverhaulTarifaGroupJob {
@@ -155,7 +161,7 @@ model OverhaulTarifaParte {
 
 model OverhaulPropuesta {
   id                     String    @id @default(cuid())
-  overhaulId             String    @unique
+  overhaulId             String
   overhaul               Overhaul  @relation(fields: [overhaulId], references: [id], onDelete: Cascade)
   emision                DateTime?
   contacto               Json      @default("{}")
@@ -169,11 +175,13 @@ model OverhaulPropuesta {
   isCompleted            Boolean   @default(false)
   completedAt            DateTime?
   updatedAt              DateTime  @updatedAt
+
+  @@index([overhaulId, version])
 }
 
 model OverhaulPlanificacion {
   id          String    @id @default(cuid())
-  overhaulId  String    @unique
+  overhaulId  String
   overhaul    Overhaul  @relation(fields: [overhaulId], references: [id], onDelete: Cascade)
   fechaInicio DateTime?
   fechaFin    DateTime?
@@ -181,6 +189,8 @@ model OverhaulPlanificacion {
   isCompleted Boolean   @default(false)
   completedAt DateTime?
   updatedAt   DateTime  @updatedAt
+
+  @@index([overhaulId, version])
 }
 
 model MasterCliente {

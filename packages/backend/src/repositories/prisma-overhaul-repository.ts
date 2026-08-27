@@ -21,9 +21,11 @@ const monitorStageByArea: Record<DomainArea, OverhaulStage> = {
 }
 
 const overhaulWithStages = {
-  necesidad: true,
-  alcance: true,
+  necesidad: { orderBy: [{ version: "desc" }, { updatedAt: "desc" }], take: 1 },
+  alcance: { orderBy: [{ version: "desc" }, { updatedAt: "desc" }], take: 1 },
   tarifas: {
+    orderBy: [{ version: "desc" }, { updatedAt: "desc" }],
+    take: 1,
     include: {
       groups: {
         include: { jobs: { orderBy: { position: "asc" } } },
@@ -32,8 +34,8 @@ const overhaulWithStages = {
       partes: { orderBy: { position: "asc" } },
     },
   },
-  propuesta: true,
-  planificacion: true,
+  propuesta: { orderBy: [{ version: "desc" }, { updatedAt: "desc" }], take: 1 },
+  planificacion: { orderBy: [{ version: "desc" }, { updatedAt: "desc" }], take: 1 },
 } satisfies Prisma.OverhaulInclude
 
 type PersistedOverhaul = Prisma.OverhaulGetPayload<{
@@ -80,13 +82,7 @@ export class PrismaOverhaulRepository implements IOverhaulRepository {
       return undefined
     }
 
-    if (
-      !overhaul.necesidad ||
-      !overhaul.alcance ||
-      !overhaul.tarifas ||
-      !overhaul.propuesta ||
-      !overhaul.planificacion
-    ) {
+    if (!this.hasAllStages(overhaul)) {
       throw new Error("Overhaul incompleto: faltan etapas relacionadas")
     }
 
@@ -98,183 +94,31 @@ export class PrismaOverhaulRepository implements IOverhaulRepository {
       where: { id: overhaul.id },
       data: {
         state: overhaul.state,
-        necesidad: {
-          update: {
-            proyecto: overhaul.stages.necesidad.proyecto,
-            cliente: overhaul.stages.necesidad.cliente,
-            ubicacion: overhaul.stages.necesidad.ubicacion,
-            tallerDestino: overhaul.stages.necesidad.tallerDestino,
-            fechaEstimada: new Date(overhaul.stages.necesidad.fechaEstimada),
-            fechaTarifa: new Date(overhaul.stages.necesidad.fechaTarifa),
-            maquinas: overhaul.stages.necesidad.maquinas,
-            version: overhaul.stages.necesidad.version,
-            isCompleted: overhaul.stages.necesidad.isCompleted,
-            completedAt: overhaul.stages.necesidad.completedAt
-              ? new Date(overhaul.stages.necesidad.completedAt)
-              : null,
-            updatedAt: new Date(overhaul.stages.necesidad.updatedAt),
-          },
-        },
-        alcance: {
-          update: {
-            resumen: overhaul.stages.alcance.resumen,
-            systems: overhaul.stages.alcance.systems,
-            version: overhaul.stages.alcance.version,
-            isCompleted: overhaul.stages.alcance.isCompleted,
-            completedAt: overhaul.stages.alcance.completedAt
-              ? new Date(overhaul.stages.alcance.completedAt)
-              : null,
-            updatedAt: new Date(overhaul.stages.alcance.updatedAt),
-          },
-        },
-        tarifas: {
-          update: {
-            currency:
-              overhaul.stages.tarifas.currency === "PEN"
-                ? Currency.PEN
-                : Currency.USD,
-            total: overhaul.stages.tarifas.total,
-            version: overhaul.stages.tarifas.version,
-            isCompleted: overhaul.stages.tarifas.isCompleted,
-            completedAt: overhaul.stages.tarifas.completedAt
-              ? new Date(overhaul.stages.tarifas.completedAt)
-              : null,
-            updatedAt: new Date(overhaul.stages.tarifas.updatedAt),
-          },
-        },
-        propuesta: {
-          update: {
-            emision: overhaul.stages.propuesta.emision
-              ? new Date(overhaul.stages.propuesta.emision)
-              : null,
-            contacto: overhaul.stages.propuesta.contacto,
-            condiciones: overhaul.stages.propuesta.condiciones,
-            inclusionesExclusiones:
-              overhaul.stages.propuesta.inclusionesExclusiones,
-            fechaReparacion: overhaul.stages.propuesta.fechaReparacion
-              ? new Date(overhaul.stages.propuesta.fechaReparacion)
-              : null,
-            terminosGenerales: overhaul.stages.propuesta.terminosGenerales,
-            garantias: overhaul.stages.propuesta.garantias,
-            propuestaUri: overhaul.stages.propuesta.propuestaUri,
-            version: overhaul.stages.propuesta.version,
-            isCompleted: overhaul.stages.propuesta.isCompleted,
-            completedAt: overhaul.stages.propuesta.completedAt
-              ? new Date(overhaul.stages.propuesta.completedAt)
-              : null,
-            updatedAt: new Date(overhaul.stages.propuesta.updatedAt),
-          },
-        },
-        planificacion: {
-          update: {
-            fechaInicio: overhaul.stages.planificacion.fechaInicio
-              ? new Date(overhaul.stages.planificacion.fechaInicio)
-              : null,
-            fechaFin: overhaul.stages.planificacion.fechaFin
-              ? new Date(overhaul.stages.planificacion.fechaFin)
-              : null,
-            version: overhaul.stages.planificacion.version,
-            isCompleted: overhaul.stages.planificacion.isCompleted,
-            completedAt: overhaul.stages.planificacion.completedAt
-              ? new Date(overhaul.stages.planificacion.completedAt)
-              : null,
-            updatedAt: new Date(overhaul.stages.planificacion.updatedAt),
-          },
-        },
+        updatedAt: new Date(overhaul.updatedAt),
+        necesidad: { create: this.necesidadSnapshot(overhaul) },
+        alcance: { create: this.alcanceSnapshot(overhaul) },
+        tarifas: { create: this.tarifasSnapshot(overhaul) },
+        propuesta: { create: this.propuestaSnapshot(overhaul) },
+        planificacion: { create: this.planificacionSnapshot(overhaul) },
       },
     })
   }
 
   public async saveTarifas(overhaul: OverhaulEntity): Promise<void> {
-    const tarifas = overhaul.stages.tarifas
-
     await this.prisma.$transaction(async (transaction) => {
-      const persistedTarifa = await transaction.overhaulTarifas.update({
-        where: { overhaulId: overhaul.id },
-        data: {
-          currency: tarifas.currency === "PEN" ? Currency.PEN : Currency.USD,
-          total: tarifas.total,
-          version: tarifas.version,
-          isCompleted: tarifas.isCompleted,
-          completedAt: tarifas.completedAt ? new Date(tarifas.completedAt) : null,
-          updatedAt: new Date(tarifas.updatedAt),
-        },
+      await transaction.overhaulTarifas.create({
+        data: { overhaulId: overhaul.id, ...this.tarifasSnapshot(overhaul) },
       })
-
-      await transaction.overhaulTarifaGroupJob.deleteMany({
-        where: { tarifaId: persistedTarifa.id },
-      })
-
-      for (const group of tarifas.groups) {
-        await transaction.overhaulTarifaGroupJob.create({
-          data: {
-            ...(group.id ? { id: group.id } : {}),
-            tarifaId: persistedTarifa.id,
-            name: group.name,
-            horas: group.horas,
-            position: group.position,
-            jobs: {
-              create: group.jobs.map((job) => ({
-                ...(job.id ? { id: job.id } : {}),
-                name: job.name,
-                materialAndMo: job.materialAndMo,
-                miscelaneos: job.miscelaneos,
-                repuestos: job.repuestos,
-                position: job.position,
-              })),
-            },
-          },
-        })
-      }
 
       await this.saveTarifasCascade(transaction, overhaul)
     })
   }
 
   public async saveTarifaRepuestos(overhaul: OverhaulEntity): Promise<void> {
-    const tarifas = overhaul.stages.tarifas
-
     await this.prisma.$transaction(async (transaction) => {
-      const persistedTarifa = await transaction.overhaulTarifas.update({
-        where: { overhaulId: overhaul.id },
-        data: {
-          version: tarifas.version,
-          isCompleted: tarifas.isCompleted,
-          completedAt: tarifas.completedAt ? new Date(tarifas.completedAt) : null,
-          updatedAt: new Date(tarifas.updatedAt),
-        },
+      await transaction.overhaulTarifas.create({
+        data: { overhaulId: overhaul.id, ...this.tarifasSnapshot(overhaul) },
       })
-
-      await transaction.overhaulTarifaParte.deleteMany({
-        where: { tarifaId: persistedTarifa.id },
-      })
-
-      if (tarifas.partes.length > 0) {
-        await transaction.overhaulTarifaParte.createMany({
-          data: tarifas.partes.map((parte) => ({
-            ...(parte.id ? { id: parte.id } : {}),
-            tarifaId: persistedTarifa.id,
-            segmentacion: parte.segmentacion,
-            componentCode: parte.componentCode,
-            jobCode: parte.jobCode,
-            parentPartName: parte.parentPartName,
-            groupNumber: parte.groupNumber,
-            partNumber: parte.partNumber,
-            partNumberSap: parte.partNumberSap,
-            partName: parte.partName,
-            quantity: parte.quantity,
-            replacementPercent: parte.replacementPercent,
-            dealerNet: parte.dealerNet,
-            costoInterno: parte.costoInterno,
-            pu: parte.pu,
-            subtotal: parte.subtotal,
-            clasificacion: parte.clasificacion,
-            notas: parte.notas || null,
-            motivo: parte.motivo || null,
-            position: parte.position,
-          })),
-        })
-      }
 
       await this.saveTarifasCascade(transaction, overhaul)
     })
@@ -284,45 +128,43 @@ export class PrismaOverhaulRepository implements IOverhaulRepository {
     const stageKey = monitorStageByArea[area]
 
     const overhauls = await this.prisma.overhaul.findMany({
-      include: {
-        necesidad: true,
-        alcance: true,
-        tarifas: true,
-        propuesta: true,
-        planificacion: true,
-      },
+      include: overhaulWithStages,
       orderBy: { updatedAt: "desc" },
     })
 
     return overhauls.flatMap((overhaul) => {
-      if (
-        !overhaul.necesidad ||
-        !overhaul.alcance ||
-        !overhaul.tarifas ||
-        !overhaul.propuesta ||
-        !overhaul.planificacion
-      ) {
+      if (!this.hasAllStages(overhaul)) {
+        return []
+      }
+
+      const [necesidad] = overhaul.necesidad
+      const [alcance] = overhaul.alcance
+      const [tarifas] = overhaul.tarifas
+      const [propuesta] = overhaul.propuesta
+      const [planificacion] = overhaul.planificacion
+
+      if (!necesidad || !alcance || !tarifas || !propuesta || !planificacion) {
         return []
       }
 
       const stageData = {
-        necesidad: overhaul.necesidad,
-        alcance: overhaul.alcance,
-        tarifas: overhaul.tarifas,
-        propuesta: overhaul.propuesta,
-        planificacion: overhaul.planificacion,
+        necesidad,
+        alcance,
+        tarifas,
+        propuesta,
+        planificacion,
       }[stageKey]
 
       return [
           {
             overhaulId: overhaul.id,
-            proyecto: overhaul.necesidad.proyecto,
-            cliente: overhaul.necesidad.cliente,
-            ubicacion: overhaul.necesidad.ubicacion,
-            tallerDestino: overhaul.necesidad.tallerDestino,
+            proyecto: necesidad.proyecto,
+            cliente: necesidad.cliente,
+            ubicacion: necesidad.ubicacion,
+            tallerDestino: necesidad.tallerDestino,
             estado: overhaul.state as OverhaulState,
-            fechaEstimada: overhaul.necesidad.fechaEstimada.toISOString(),
-            fechaTarifa: overhaul.necesidad.fechaTarifa.toISOString(),
+            fechaEstimada: necesidad.fechaEstimada.toISOString(),
+            fechaTarifa: necesidad.fechaTarifa.toISOString(),
             stage: stageKey,
             version: stageData.version,
             isCompleted: stageData.isCompleted,
@@ -334,13 +176,17 @@ export class PrismaOverhaulRepository implements IOverhaulRepository {
   }
 
   private mapToEntity(overhaul: PersistedOverhaul): OverhaulEntity {
-    if (
-      !overhaul.necesidad ||
-      !overhaul.alcance ||
-      !overhaul.tarifas ||
-      !overhaul.propuesta ||
-      !overhaul.planificacion
-    ) {
+    if (!this.hasAllStages(overhaul)) {
+      throw new Error("Overhaul incompleto: faltan etapas relacionadas")
+    }
+
+    const [necesidad] = overhaul.necesidad
+    const [alcance] = overhaul.alcance
+    const [tarifas] = overhaul.tarifas
+    const [propuesta] = overhaul.propuesta
+    const [planificacion] = overhaul.planificacion
+
+    if (!necesidad || !alcance || !tarifas || !propuesta || !planificacion) {
       throw new Error("Overhaul incompleto: faltan etapas relacionadas")
     }
 
@@ -351,35 +197,35 @@ export class PrismaOverhaulRepository implements IOverhaulRepository {
       overhaul.updatedAt.toISOString(),
       {
         necesidad: {
-          proyecto: overhaul.necesidad.proyecto,
-          cliente: overhaul.necesidad.cliente,
-          ubicacion: overhaul.necesidad.ubicacion,
-          tallerDestino: overhaul.necesidad.tallerDestino,
-          fechaEstimada: overhaul.necesidad.fechaEstimada.toISOString(),
-          fechaTarifa: overhaul.necesidad.fechaTarifa.toISOString(),
-          maquinas: overhaul.necesidad.maquinas as MachineRequirement[],
-          version: overhaul.necesidad.version,
-          isCompleted: overhaul.necesidad.isCompleted,
-          completedAt: overhaul.necesidad.completedAt
-            ? overhaul.necesidad.completedAt.toISOString()
+          proyecto: necesidad.proyecto,
+          cliente: necesidad.cliente,
+          ubicacion: necesidad.ubicacion,
+          tallerDestino: necesidad.tallerDestino,
+          fechaEstimada: necesidad.fechaEstimada.toISOString(),
+          fechaTarifa: necesidad.fechaTarifa.toISOString(),
+          maquinas: necesidad.maquinas as MachineRequirement[],
+          version: necesidad.version,
+          isCompleted: necesidad.isCompleted,
+          completedAt: necesidad.completedAt
+            ? necesidad.completedAt.toISOString()
             : null,
-          createdAt: overhaul.necesidad.createdAt.toISOString(),
-          updatedAt: overhaul.necesidad.updatedAt.toISOString(),
+          createdAt: necesidad.createdAt.toISOString(),
+          updatedAt: necesidad.updatedAt.toISOString(),
         },
         alcance: {
-          resumen: overhaul.alcance.resumen,
-          systems: overhaul.alcance.systems as AlcanceSystem[],
-          version: overhaul.alcance.version,
-          isCompleted: overhaul.alcance.isCompleted,
-          completedAt: overhaul.alcance.completedAt
-            ? overhaul.alcance.completedAt.toISOString()
+          resumen: alcance.resumen,
+          systems: alcance.systems as AlcanceSystem[],
+          version: alcance.version,
+          isCompleted: alcance.isCompleted,
+          completedAt: alcance.completedAt
+            ? alcance.completedAt.toISOString()
             : null,
-          updatedAt: overhaul.alcance.updatedAt.toISOString(),
+          updatedAt: alcance.updatedAt.toISOString(),
         },
         tarifas: {
-          currency: overhaul.tarifas.currency,
-          total: overhaul.tarifas.total.toNumber(),
-          groups: overhaul.tarifas.groups.map((group) => ({
+          currency: tarifas.currency,
+          total: tarifas.total.toNumber(),
+          groups: tarifas.groups.map((group) => ({
             id: group.id,
             name: group.name,
             horas: group.horas.toNumber(),
@@ -393,7 +239,7 @@ export class PrismaOverhaulRepository implements IOverhaulRepository {
               position: job.position,
             })),
           })),
-          partes: overhaul.tarifas.partes.map((parte) => ({
+          partes: tarifas.partes.map((parte) => ({
             id: parte.id,
             segmentacion: parte.segmentacion,
             componentCode: parte.componentCode,
@@ -414,47 +260,47 @@ export class PrismaOverhaulRepository implements IOverhaulRepository {
             motivo: parte.motivo ?? undefined,
             position: parte.position,
           })),
-          version: overhaul.tarifas.version,
-          isCompleted: overhaul.tarifas.isCompleted,
-          completedAt: overhaul.tarifas.completedAt
-            ? overhaul.tarifas.completedAt.toISOString()
+          version: tarifas.version,
+          isCompleted: tarifas.isCompleted,
+          completedAt: tarifas.completedAt
+            ? tarifas.completedAt.toISOString()
             : null,
-          updatedAt: overhaul.tarifas.updatedAt.toISOString(),
+          updatedAt: tarifas.updatedAt.toISOString(),
         },
         propuesta: {
-          emision: overhaul.propuesta.emision
-            ? overhaul.propuesta.emision.toISOString()
+          emision: propuesta.emision
+            ? propuesta.emision.toISOString()
             : "",
-          contacto: overhaul.propuesta.contacto as PropuestaContact,
-          condiciones: overhaul.propuesta.condiciones,
+          contacto: propuesta.contacto as PropuestaContact,
+          condiciones: propuesta.condiciones,
           inclusionesExclusiones:
-            overhaul.propuesta.inclusionesExclusiones as PropuestaInclusionExclusion[],
-          fechaReparacion: overhaul.propuesta.fechaReparacion
-            ? overhaul.propuesta.fechaReparacion.toISOString()
+            propuesta.inclusionesExclusiones as PropuestaInclusionExclusion[],
+          fechaReparacion: propuesta.fechaReparacion
+            ? propuesta.fechaReparacion.toISOString()
             : "",
-          terminosGenerales: overhaul.propuesta.terminosGenerales,
-          garantias: overhaul.propuesta.garantias,
-          propuestaUri: overhaul.propuesta.propuestaUri,
-          version: overhaul.propuesta.version,
-          isCompleted: overhaul.propuesta.isCompleted,
-          completedAt: overhaul.propuesta.completedAt
-            ? overhaul.propuesta.completedAt.toISOString()
+          terminosGenerales: propuesta.terminosGenerales,
+          garantias: propuesta.garantias,
+          propuestaUri: propuesta.propuestaUri,
+          version: propuesta.version,
+          isCompleted: propuesta.isCompleted,
+          completedAt: propuesta.completedAt
+            ? propuesta.completedAt.toISOString()
             : null,
-          updatedAt: overhaul.propuesta.updatedAt.toISOString(),
+          updatedAt: propuesta.updatedAt.toISOString(),
         },
         planificacion: {
-          fechaInicio: overhaul.planificacion.fechaInicio
-            ? overhaul.planificacion.fechaInicio.toISOString()
+          fechaInicio: planificacion.fechaInicio
+            ? planificacion.fechaInicio.toISOString()
             : "",
-          fechaFin: overhaul.planificacion.fechaFin
-            ? overhaul.planificacion.fechaFin.toISOString()
+          fechaFin: planificacion.fechaFin
+            ? planificacion.fechaFin.toISOString()
             : "",
-          version: overhaul.planificacion.version,
-          isCompleted: overhaul.planificacion.isCompleted,
-          completedAt: overhaul.planificacion.completedAt
-            ? overhaul.planificacion.completedAt.toISOString()
+          version: planificacion.version,
+          isCompleted: planificacion.isCompleted,
+          completedAt: planificacion.completedAt
+            ? planificacion.completedAt.toISOString()
             : null,
-          updatedAt: overhaul.planificacion.updatedAt.toISOString(),
+          updatedAt: planificacion.updatedAt.toISOString(),
         },
       },
     )
@@ -468,19 +314,136 @@ export class PrismaOverhaulRepository implements IOverhaulRepository {
       where: { id: overhaul.id },
       data: { updatedAt: new Date(overhaul.updatedAt) },
     })
-    await transaction.overhaulPropuesta.update({
-      where: { overhaulId: overhaul.id },
-      data: {
-        isCompleted: overhaul.stages.propuesta.isCompleted,
-        updatedAt: new Date(overhaul.stages.propuesta.updatedAt),
-      },
+    await transaction.overhaulPropuesta.create({
+      data: { overhaulId: overhaul.id, ...this.propuestaSnapshot(overhaul) },
     })
-    await transaction.overhaulPlanificacion.update({
-      where: { overhaulId: overhaul.id },
-      data: {
-        isCompleted: overhaul.stages.planificacion.isCompleted,
-        updatedAt: new Date(overhaul.stages.planificacion.updatedAt),
-      },
+    await transaction.overhaulPlanificacion.create({
+      data: { overhaulId: overhaul.id, ...this.planificacionSnapshot(overhaul) },
     })
+  }
+
+  private hasAllStages(overhaul: PersistedOverhaul): boolean {
+    return (
+      overhaul.necesidad.length > 0 &&
+      overhaul.alcance.length > 0 &&
+      overhaul.tarifas.length > 0 &&
+      overhaul.propuesta.length > 0 &&
+      overhaul.planificacion.length > 0
+    )
+  }
+
+  private necesidadSnapshot(overhaul: OverhaulEntity) {
+    const necesidad = overhaul.stages.necesidad
+    return {
+      proyecto: necesidad.proyecto,
+      cliente: necesidad.cliente,
+      ubicacion: necesidad.ubicacion,
+      tallerDestino: necesidad.tallerDestino,
+      fechaEstimada: new Date(necesidad.fechaEstimada),
+      fechaTarifa: new Date(necesidad.fechaTarifa),
+      maquinas: necesidad.maquinas,
+      version: necesidad.version,
+      isCompleted: necesidad.isCompleted,
+      completedAt: necesidad.completedAt ? new Date(necesidad.completedAt) : null,
+      updatedAt: new Date(necesidad.updatedAt),
+    }
+  }
+
+  private alcanceSnapshot(overhaul: OverhaulEntity) {
+    const alcance = overhaul.stages.alcance
+    return {
+      resumen: alcance.resumen,
+      systems: alcance.systems,
+      version: alcance.version,
+      isCompleted: alcance.isCompleted,
+      completedAt: alcance.completedAt ? new Date(alcance.completedAt) : null,
+      updatedAt: new Date(alcance.updatedAt),
+    }
+  }
+
+  private tarifasSnapshot(overhaul: OverhaulEntity) {
+    const tarifas = overhaul.stages.tarifas
+    return {
+      currency: tarifas.currency === "PEN" ? Currency.PEN : Currency.USD,
+      total: tarifas.total,
+      version: tarifas.version,
+      isCompleted: tarifas.isCompleted,
+      completedAt: tarifas.completedAt ? new Date(tarifas.completedAt) : null,
+      updatedAt: new Date(tarifas.updatedAt),
+      groups: {
+        create: tarifas.groups.map((group) => ({
+          name: group.name,
+          horas: group.horas,
+          position: group.position,
+          jobs: {
+            create: group.jobs.map((job) => ({
+              name: job.name,
+              materialAndMo: job.materialAndMo,
+              miscelaneos: job.miscelaneos,
+              repuestos: job.repuestos,
+              position: job.position,
+            })),
+          },
+        })),
+      },
+      partes: {
+        create: tarifas.partes.map((parte) => ({
+          segmentacion: parte.segmentacion,
+          componentCode: parte.componentCode,
+          jobCode: parte.jobCode,
+          parentPartName: parte.parentPartName,
+          groupNumber: parte.groupNumber,
+          partNumber: parte.partNumber,
+          partNumberSap: parte.partNumberSap,
+          partName: parte.partName,
+          quantity: parte.quantity,
+          replacementPercent: parte.replacementPercent,
+          dealerNet: parte.dealerNet,
+          costoInterno: parte.costoInterno,
+          pu: parte.pu,
+          subtotal: parte.subtotal,
+          clasificacion: parte.clasificacion,
+          notas: parte.notas || null,
+          motivo: parte.motivo || null,
+          position: parte.position,
+        })),
+      },
+    }
+  }
+
+  private propuestaSnapshot(overhaul: OverhaulEntity) {
+    const propuesta = overhaul.stages.propuesta
+    return {
+      emision: propuesta.emision ? new Date(propuesta.emision) : null,
+      contacto: propuesta.contacto,
+      condiciones: propuesta.condiciones,
+      inclusionesExclusiones: propuesta.inclusionesExclusiones,
+      fechaReparacion: propuesta.fechaReparacion
+        ? new Date(propuesta.fechaReparacion)
+        : null,
+      terminosGenerales: propuesta.terminosGenerales,
+      garantias: propuesta.garantias,
+      propuestaUri: propuesta.propuestaUri,
+      version: propuesta.version,
+      isCompleted: propuesta.isCompleted,
+      completedAt: propuesta.completedAt ? new Date(propuesta.completedAt) : null,
+      updatedAt: new Date(propuesta.updatedAt),
+    }
+  }
+
+  private planificacionSnapshot(overhaul: OverhaulEntity) {
+    const planificacion = overhaul.stages.planificacion
+    return {
+      fechaInicio: planificacion.fechaInicio
+        ? new Date(planificacion.fechaInicio)
+        : null,
+      fechaFin: planificacion.fechaFin ? new Date(planificacion.fechaFin) : null,
+      version: planificacion.version,
+      isCompleted: planificacion.isCompleted,
+      completedAt: planificacion.completedAt
+        ? new Date(planificacion.completedAt)
+        : null,
+      updatedAt: new Date(planificacion.updatedAt),
+    }
   }
 }
