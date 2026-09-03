@@ -9,6 +9,7 @@ import {
   overhaulService,
 } from "@workspace/backend"
 import { createUpdateAlcanceSchemaWithMasterData } from "@workspace/backend/lib/validators/overhaul"
+import { getCurrentActor } from "@/lib/current-actor"
 
 export async function PATCH(
   request: Request,
@@ -42,7 +43,11 @@ export async function PATCH(
   }
 
   try {
-    const result = await overhaulService.updateAlcance(id, parsed.data)
+    const result = await overhaulService.updateAlcance(
+      id,
+      parsed.data,
+      await getCurrentActor(),
+    )
     return NextResponse.json(result)
   } catch (error) {
     if (error instanceof NotFoundError) {

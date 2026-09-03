@@ -23,6 +23,11 @@ import type {
   TarifaGroupJob,
 } from "@workspace/backend/types/overhaul"
 import { SpreadsheetUpload } from "@/components/spreadsheet-upload"
+import {
+  StageLockBanner,
+  StageLockFieldset,
+  useStageLock,
+} from "@/components/stage-lock"
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
 
 import { TarifaGroupsEditor } from "./tarifa-groups-editor"
@@ -46,6 +51,8 @@ export function TarifasForm({
   // Modal state
   const [loadFile, setLoadFile] = useState<File | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
+
+  const lock = useStageLock(initialTarifas.isCompleted, initialTarifas.version)
 
   useUnsavedChanges(isDirty)
 
@@ -123,6 +130,7 @@ export function TarifasForm({
       setGroups(result.data.tarifas.groups)
       setIsDirty(false)
       setSuccess(true)
+      lock.lockAgain()
       router.refresh()
     } catch (submitError) {
       setError(
@@ -148,6 +156,15 @@ export function TarifasForm({
       ) : null}
 
       <div className="flex flex-col gap-8">
+        <StageLockBanner
+          isLocked={lock.isLocked}
+          isEditing={lock.isEditing}
+          version={initialTarifas.version}
+          nextVersion={lock.nextVersion}
+          onStartNewVersion={lock.startNewVersion}
+        />
+
+        <StageLockFieldset isLocked={lock.isLocked} className="flex flex-col gap-8">
         {/* Archivo de trabajo */}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
           <div className="lg:w-64 lg:shrink-0">
@@ -225,6 +242,7 @@ export function TarifasForm({
             {isSubmitting ? "Guardando..." : "Guardar tarifas"}
           </Button>
         </div>
+        </StageLockFieldset>
       </div>
     </>
   )

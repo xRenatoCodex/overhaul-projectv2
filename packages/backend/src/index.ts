@@ -1,4 +1,3 @@
-import { Currency } from "@prisma/client"
 import { prisma } from "@workspace/backend/lib/prisma"
 import { seedApplicationData } from "@workspace/backend/lib/seed"
 import { PrismaOverhaulRepository } from "@workspace/backend/repositories/prisma-overhaul-repository"
@@ -7,6 +6,7 @@ import { AuthService } from "@workspace/backend/services/auth-service"
 import { DashboardService } from "@workspace/backend/services/dashboard-service"
 import { MasterDataService } from "@workspace/backend/services/master-data-service"
 import { OverhaulService } from "@workspace/backend/services/overhaul-service"
+import { StorageService } from "@workspace/backend/services/storage-service"
 import { MetricsService } from "@workspace/backend/metrics/metrics-service"
 import type { CreateNecesidadInput } from "@workspace/backend/types/overhaul"
 
@@ -28,6 +28,7 @@ export const overhaulService = new OverhaulService(overhaulRepository)
 export const dashboardService = new DashboardService(overhaulRepository)
 export const masterDataService = new MasterDataService(prisma)
 export const metricsService = new MetricsService(prisma)
+export const storageService = new StorageService()
 let seedPromise: Promise<void> | undefined
 
 export async function ensureBackendSeeded(): Promise<void> {
@@ -38,32 +39,21 @@ export async function ensureBackendSeeded(): Promise<void> {
 }
 
 async function seedBackendData(): Promise<void> {
-  await seedApplicationData(prisma)
+  try {
+    await seedApplicationData(prisma)
 
-  const overhaulCount = await prisma.overhaul.count()
-  if (overhaulCount > 0) {
-    return
+    const overhaulCount = await prisma.overhaul.count()
+    if (overhaulCount > 0) {
+      return
+    }
+
+    await overhaulRepository.createFromNecesidad(seedNecesidad)
+  } catch (error) {
+    console.warn(
+      "Failed to seed backend data (database may be unavailable):",
+      error instanceof Error ? error.message : error
+    )
   }
-
-  await prisma.overhaul.create({
-    data: {
-      necesidad: {
-        create: {
-          proyecto: seedNecesidad.proyecto,
-          cliente: seedNecesidad.cliente,
-          ubicacion: seedNecesidad.ubicacion,
-          tallerDestino: seedNecesidad.tallerDestino,
-          fechaEstimada: new Date(seedNecesidad.fechaEstimada),
-          fechaTarifa: new Date(seedNecesidad.fechaTarifa),
-          maquinas: seedNecesidad.maquinas,
-        },
-      },
-      alcance: { create: { resumen: "", systems: [] } },
-      tarifas: { create: { currency: Currency.USD, total: 0 } },
-      propuesta: { create: {} },
-      planificacion: { create: {} },
-    },
-  })
 }
 
 export * from "@workspace/backend/entities/overhaul"
@@ -72,6 +62,7 @@ export * from "@workspace/backend/interfaces/repositories"
 export * from "@workspace/backend/interfaces/services"
 export * from "@workspace/backend/lib/prisma"
 export * from "@workspace/backend/services/master-data-service"
+export * from "@workspace/backend/services/storage-service"
 export * from "@workspace/backend/services/errors"
 export * from "@workspace/backend/metrics/types"
 export * from "@workspace/backend/metrics/metrics-service"

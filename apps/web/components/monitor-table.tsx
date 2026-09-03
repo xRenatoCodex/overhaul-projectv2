@@ -10,6 +10,9 @@ import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { DataTable } from "@workspace/ui/components/data-table"
 
+import { OverhaulHistoryDialog } from "@/components/overhaul-history-graph"
+import { getNextStage, getStageLabel } from "@/lib/stage-utils"
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -101,25 +104,36 @@ export function MonitorTable({ items, hrefTemplate }: Props) {
         },
       },
       {
-        accessorKey: "isCompleted",
+        accessorKey: "stages",
         header: "Etapa",
-        size: 110,
+        size: 130,
         enableColumnFilter: true,
-        enableSorting: true,
-        cell: ({ getValue }) => {
-          const completed = getValue() as boolean
+        enableSorting: false,
+        cell: ({ getValue, row }) => {
+          const stages = getValue() as Array<{ stage: string; isCompleted: boolean }>
+          const nextStage = getNextStage(
+            stages as Array<{ stage: any; isCompleted: boolean }>,
+          )
+          const label = getStageLabel(nextStage)
+          const isFinished = nextStage === "finalizada"
+
           return (
-            <Badge variant={completed ? "default" : "outline"}>
-              {completed ? "Completada" : "En progreso"}
+            <Badge variant={isFinished ? "default" : "outline"}>
+              {label}
             </Badge>
           )
         },
         filterFn: (row, _columnId, filterValue: string) => {
           if (!filterValue) return true
           const q = filterValue.toLowerCase()
-          const label = (row.getValue("isCompleted") as boolean)
-            ? "completada"
-            : "en progreso"
+          const stages = row.getValue("stages") as Array<{
+            stage: string
+            isCompleted: boolean
+          }>
+          const nextStage = getNextStage(
+            stages as Array<{ stage: any; isCompleted: boolean }>,
+          )
+          const label = getStageLabel(nextStage).toLowerCase()
           return label.includes(q)
         },
       },
@@ -172,21 +186,28 @@ export function MonitorTable({ items, hrefTemplate }: Props) {
       {
         id: "actions",
         header: "",
-        size: 68,
+        size: 96,
         enableColumnFilter: false,
         enableSorting: false,
         cell: ({ row }) => {
           const href = hrefTemplate.replace("{id}", row.original.overhaulId)
 
           return (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => router.push(href)}
-              title="Abrir"
-            >
-              <ExternalLink />
-            </Button>
+            <div className="flex items-center gap-1">
+              <OverhaulHistoryDialog
+                overhaulId={row.original.overhaulId}
+                triggerVariant="ghost"
+                compact
+              />
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => router.push(href)}
+                title="Abrir"
+              >
+                <ExternalLink />
+              </Button>
+            </div>
           )
         },
       },

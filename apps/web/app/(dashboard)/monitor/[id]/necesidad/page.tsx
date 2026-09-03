@@ -9,6 +9,7 @@ import type { OverhaulNecesidadData } from "@workspace/backend/types/overhaul"
 import { Separator } from "@workspace/ui/components/separator"
 
 import { ReadOnlyField } from "@/components/read-only-field"
+import { StageHeaderInfo } from "@/components/stage-header-info"
 import { formatDate } from "@/lib/format-date"
 
 export default async function MonitorNecesidadPage({
@@ -35,11 +36,17 @@ export default async function MonitorNecesidadPage({
   }
 
   return (
-    <section className="w-full space-y-8">
-      <div className="space-y-1">
+    <section className="relative w-full space-y-8">
+      <div className="space-y-1 pr-48">
         <p className="text-sm font-medium text-muted-foreground">Etapa 1 · Necesidad</p>
         <h1 className="text-2xl font-semibold tracking-tight">{necesidad.proyecto}</h1>
       </div>
+      <StageHeaderInfo
+        version={necesidad.version}
+        createdBy={necesidad.createdBy}
+        createdAt={necesidad.createdAt}
+        updatedAt={necesidad.updatedAt}
+      />
 
       <div className="grid gap-5 md:grid-cols-2">
         <ReadOnlyField label="Cliente" value={necesidad.cliente} />

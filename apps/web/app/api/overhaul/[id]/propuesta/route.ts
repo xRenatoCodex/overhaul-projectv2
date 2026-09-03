@@ -7,6 +7,7 @@ import {
   overhaulService,
 } from "@workspace/backend"
 import { updatePropuestaSchema } from "@workspace/backend/lib/validators/overhaul"
+import { getCurrentActor } from "@/lib/current-actor"
 
 export async function PATCH(
   request: Request,
@@ -33,7 +34,11 @@ export async function PATCH(
 
   try {
     return NextResponse.json(
-      await overhaulService.updatePropuesta(id, parsed.data),
+      await overhaulService.updatePropuesta(
+        id,
+        parsed.data,
+        await getCurrentActor(),
+      ),
     )
   } catch (error) {
     if (error instanceof NotFoundError) {

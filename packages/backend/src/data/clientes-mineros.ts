@@ -5,6 +5,7 @@ export const clientesMineros: string[] = [
   "Southern Peru",
   "Las Bambas",
   "Yanacocha",
+  "Quellaveco",
   "Antapaccay",
   "Toromocho",
   "Constancia",

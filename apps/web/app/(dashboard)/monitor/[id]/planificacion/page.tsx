@@ -8,6 +8,7 @@ import {
 import type { OverhaulPlanificacionData } from "@workspace/backend/types/overhaul"
 
 import { ReadOnlyField } from "@/components/read-only-field"
+import { StageHeaderInfo } from "@/components/stage-header-info"
 import { formatDate } from "@/lib/format-date"
 
 export default async function MonitorPlanificacionPage({
@@ -34,11 +35,17 @@ export default async function MonitorPlanificacionPage({
   }
 
   return (
-    <section className="mx-auto w-full max-w-5xl space-y-8">
-      <div className="space-y-1">
+    <section className="relative mx-auto w-full max-w-5xl space-y-8">
+      <div className="space-y-1 pr-48">
         <p className="text-sm font-medium text-muted-foreground">Etapa 5 · Planificación</p>
         <h1 className="text-2xl font-semibold tracking-tight">Planificación de ejecución</h1>
       </div>
+      <StageHeaderInfo
+        version={planificacion.version}
+        createdBy={planificacion.createdBy}
+        createdAt={planificacion.createdAt}
+        updatedAt={planificacion.updatedAt}
+      />
 
       <div className="grid gap-5 md:grid-cols-2">
         <ReadOnlyField

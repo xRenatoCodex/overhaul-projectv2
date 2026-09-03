@@ -7,6 +7,7 @@ import {
   overhaulService,
   updateTarifasSchema,
 } from "@workspace/backend"
+import { getCurrentActor } from "@/lib/current-actor"
 
 export async function PATCH(
   request: Request,
@@ -36,7 +37,11 @@ export async function PATCH(
   }
 
   try {
-    const result = await overhaulService.updateTarifas(id, parsed.data)
+    const result = await overhaulService.updateTarifas(
+      id,
+      parsed.data,
+      await getCurrentActor(),
+    )
     return NextResponse.json({ success: true, data: result })
   } catch (error) {
     if (error instanceof NotFoundError) {

@@ -23,6 +23,9 @@ type StageMap = {
 }
 
 export class OverhaulEntity {
+  /** Author attributed to the next persisted snapshot. */
+  public actor: string | null = null
+
   constructor(
     public readonly id: string,
     public state: OverhaulState,
@@ -44,12 +47,17 @@ export class OverhaulEntity {
         completedAt: null,
         createdAt: now,
         updatedAt: now,
+        createdById: null,
+        createdBy: null,
       },
       alcance: {
         version: 1,
         isCompleted: false,
         completedAt: null,
+        createdAt: now,
         updatedAt: now,
+        createdById: null,
+        createdBy: null,
         resumen: "",
         systems: [],
       },
@@ -57,7 +65,10 @@ export class OverhaulEntity {
         version: 1,
         isCompleted: false,
         completedAt: null,
+        createdAt: now,
         updatedAt: now,
+        createdById: null,
+        createdBy: null,
         currency: "USD",
         total: 0,
         groups: [],
@@ -67,7 +78,10 @@ export class OverhaulEntity {
         version: 1,
         isCompleted: false,
         completedAt: null,
+        createdAt: now,
         updatedAt: now,
+        createdById: null,
+        createdBy: null,
         emision: "",
         contacto: { name: "", location: "" },
         condiciones: [],
@@ -81,7 +95,10 @@ export class OverhaulEntity {
         version: 1,
         isCompleted: false,
         completedAt: null,
+        createdAt: now,
         updatedAt: now,
+        createdById: null,
+        createdBy: null,
         fechaInicio: "",
         fechaFin: "",
       },
@@ -101,6 +118,8 @@ export class OverhaulEntity {
       completedAt: null,
       createdAt: this.stages.necesidad.createdAt,
       updatedAt: now,
+      createdById: this.stages.necesidad.createdById,
+      createdBy: this.stages.necesidad.createdBy,
     }
     this.invalidateDownstreamFrom("necesidad", now)
     this.updatedAt = now
@@ -115,6 +134,9 @@ export class OverhaulEntity {
       isCompleted: false,
       completedAt: null,
       updatedAt: now,
+      createdAt: this.stages.alcance.createdAt,
+      createdById: this.stages.alcance.createdById,
+      createdBy: this.stages.alcance.createdBy,
     }
     this.invalidateDownstreamFrom("alcance", now)
     this.updatedAt = now
@@ -127,6 +149,9 @@ export class OverhaulEntity {
       isCompleted: false,
       completedAt: null,
       updatedAt: now,
+      createdAt: this.stages.propuesta.createdAt,
+      createdById: this.stages.propuesta.createdById,
+      createdBy: this.stages.propuesta.createdBy,
     }
     this.invalidateDownstreamFrom("propuesta", now)
     this.updatedAt = now
@@ -153,6 +178,9 @@ export class OverhaulEntity {
       isCompleted: false,
       completedAt: null,
       updatedAt: now,
+      createdAt: this.stages.tarifas.createdAt,
+      createdById: this.stages.tarifas.createdById,
+      createdBy: this.stages.tarifas.createdBy,
     }
     this.invalidateDownstreamFrom("tarifas", now)
     this.updatedAt = now
@@ -169,6 +197,9 @@ export class OverhaulEntity {
       isCompleted: false,
       completedAt: null,
       updatedAt: now,
+      createdAt: this.stages.tarifas.createdAt,
+      createdById: this.stages.tarifas.createdById,
+      createdBy: this.stages.tarifas.createdBy,
     }
     this.invalidateDownstreamFrom("tarifas", now)
     this.updatedAt = now

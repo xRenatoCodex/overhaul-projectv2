@@ -10,6 +10,7 @@ import {
 import type { OverhaulTarifasData } from "@workspace/backend/types/overhaul"
 import { Button } from "@workspace/ui/components/button"
 
+import { StageHeaderInfo } from "@/components/stage-header-info"
 import { TarifaGroupsView } from "./tarifa-groups-view"
 import { TarifaSummary } from "@/app/(dashboard)/overhaul/[id]/tarifas/components/tarifa-summary"
 
@@ -37,14 +38,20 @@ export default async function MonitorTarifasPage({
   }
 
   return (
-    <section className="w-full space-y-8 overflow-hidden ">
-      <div className="space-y-1">
+    <section className="relative w-full space-y-8 overflow-hidden">
+      <div className="space-y-1 pr-48">
         <p className="text-sm font-medium text-muted-foreground">Etapa 3 · Tarifas</p>
         <h1 className="text-2xl font-semibold tracking-tight">Construcción de tarifa</h1>
         <p className="max-w-2xl text-muted-foreground">
           Trabajos por grupo y sus costos consolidados para la propuesta.
         </p>
       </div>
+      <StageHeaderInfo
+        version={tarifas.version}
+        createdBy={tarifas.createdBy}
+        createdAt={tarifas.createdAt}
+        updatedAt={tarifas.updatedAt}
+      />
 
       <TarifaSummary tarifas={tarifas} />
 

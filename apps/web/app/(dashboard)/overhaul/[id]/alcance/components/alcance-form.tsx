@@ -17,6 +17,12 @@ import type {
   ComponentState,
 } from "@workspace/backend/types/overhaul"
 
+import {
+  StageLockBanner,
+  StageLockFieldset,
+  useStageLock,
+} from "@/components/stage-lock"
+
 import { MarkdownCommentDialog } from "../components/markdown-comment-dialog"
 
 const componentStates: { value: ComponentState; label: string }[] = [
@@ -45,11 +51,15 @@ export function AlcanceForm({
   initialSystems,
   talleres,
   atenciones,
+  version,
+  isCompleted,
 }: {
   overhaulId: string
   initialSystems: AlcanceSystem[]
   talleres: string[]
   atenciones: string[]
+  version: number
+  isCompleted: boolean
 }) {
   const router = useRouter()
   const [systems, setSystems] = useState<AlcanceSystem[]>(
@@ -58,6 +68,8 @@ export function AlcanceForm({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
+
+  const lock = useStageLock(isCompleted, version)
 
   function updateSystemName(systemIndex: number, name: string) {
     setSystems((current) =>
@@ -173,6 +185,7 @@ export function AlcanceForm({
       }
 
       setSuccess(true)
+      lock.lockAgain()
       router.refresh()
     } catch (submitError) {
       setError(
@@ -187,6 +200,15 @@ export function AlcanceForm({
 
   return (
     <div className="space-y-8 w-full">
+      <StageLockBanner
+        isLocked={lock.isLocked}
+        isEditing={lock.isEditing}
+        version={version}
+        nextVersion={lock.nextVersion}
+        onStartNewVersion={lock.startNewVersion}
+      />
+
+      <StageLockFieldset isLocked={lock.isLocked} className="w-full space-y-8">
       {systems.map((system, systemIndex) => (
         <div key={systemIndex} className="space-y-4">
           <div className="flex items-center gap-3">
@@ -390,6 +412,7 @@ export function AlcanceForm({
           {isSubmitting ? "Guardando..." : "Guardar alcance"}
         </Button>
       </div>
+      </StageLockFieldset>
     </div>
   )
 }

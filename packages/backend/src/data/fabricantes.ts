@@ -1,0 +1,15 @@
+export const fabricantes: string[] = [
+  "CATERPILLAR",
+  "ATLAS COPCO",
+  "EPIROC",
+  "P&H (PAWLING & HARNISCHFEGER)",
+  "HITACHI LTD.",
+  "SANDVIK",
+  "KOMATSU",
+  "KENWORTH",
+  "SCANIA",
+  "O&K-TEREX",
+  "BUCYRUS-ERIE",
+  "DRILLTECH",
+  "KRESS",
+]

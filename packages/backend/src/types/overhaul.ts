@@ -29,12 +29,13 @@ export type StageVersion = {
   isCompleted: boolean
   completedAt: string | null
   updatedAt: string
+  createdAt: string
+  createdById: string | null
+  createdBy: string | null
 }
 
 export type OverhaulNecesidadData = StageVersion &
-  CreateNecesidadInput & {
-    createdAt: string
-  }
+  CreateNecesidadInput
 
 export type ComponentState =
   | "Nuevo"
@@ -156,6 +157,13 @@ export type OverhaulPlanificacionData = StageVersion & {
   fechaFin: string
 }
 
+export type StageSummary = {
+  stage: OverhaulStage
+  version: number
+  isCompleted: boolean
+  updatedAt: string
+}
+
 export type MonitorItem = {
   overhaulId: string
   proyecto: string
@@ -170,4 +178,38 @@ export type MonitorItem = {
   isCompleted: boolean
   updatedAt: string
   createdAt: string
+  stages: StageSummary[]
+}
+
+export type OverhaulHistoryEntry = {
+  id: string
+  stage: OverhaulStage
+  version: number
+  isCompleted: boolean
+  author: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type OverhaulHistory = {
+  overhaulId: string
+  proyecto: string
+  entries: OverhaulHistoryEntry[]
+}
+
+export type OverhaulStageSummary = {
+  stage: OverhaulStage
+  version: number
+  isCompleted: boolean
+  updatedAt: string
+}
+
+export type OverhaulSummary = {
+  overhaulId: string
+  proyecto: string
+  cliente: string
+  estado: OverhaulState
+  version: number
+  pendingStage: OverhaulStage | null
+  stages: OverhaulStageSummary[]
 }

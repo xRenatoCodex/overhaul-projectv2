@@ -2,6 +2,11 @@ generator client {
   provider = "prisma-client-js"
 }
 
+generator dbml {
+  provider = "prisma-dbml-generator"
+  output   = "./dbml"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -25,21 +30,50 @@ enum Currency {
   PEN
 }
 
+// Source column: "Tipo Flota" in the fleet TSV
+enum CategoriaFlota {
+  EXPANDIDA
+  TRADICIONAL
+}
+
+// Source column: "Flota" in the fleet TSV
+enum FlotaTipo {
+  DRILLS
+  SHOVEL
+  AUX_FLEET
+  SUPPORT
+  TRUCKS
+}
+
+enum ComponentState {
+  Nuevo
+  Reman
+  RGeneral
+  Resellado
+  Reutilizar
+  Cliente
+}
+
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  role         UserRole
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String                  @id @default(cuid())
+  name            String
+  email           String                  @unique
+  passwordHash    String
+  role            UserRole
+  necesidades     OverhaulNecesidad[]
+  alcances        OverhaulAlcance[]
+  tarifas         OverhaulTarifas[]
+  propuestas      OverhaulPropuesta[]
+  planificaciones OverhaulPlanificacion[]
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
 }
 
 model Overhaul {
-  id            String                 @id @default(cuid())
-  state         OverhaulState          @default(definicion)
-  createdAt     DateTime               @default(now())
-  updatedAt     DateTime               @updatedAt
+  id            String                  @id @default(cuid())
+  state         OverhaulState           @default(definicion)
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
   necesidad     OverhaulNecesidad[]
   alcance       OverhaulAlcance[]
   tarifas       OverhaulTarifas[]
@@ -48,37 +82,84 @@ model Overhaul {
 }
 
 model OverhaulNecesidad {
-  id            String    @id @default(cuid())
-  overhaulId    String
-  overhaul      Overhaul  @relation(fields: [overhaulId], references: [id], onDelete: Cascade)
-  proyecto      String
-  cliente       String
-  ubicacion     String
-  tallerDestino String
-  fechaEstimada DateTime
-  fechaTarifa   DateTime
-  maquinas      Json
-  version       Int       @default(1)
-  isCompleted   Boolean   @default(false)
-  completedAt   DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id              String                     @id @default(cuid())
+  overhaulId      String
+  overhaul        Overhaul                   @relation(fields: [overhaulId], references: [id], onDelete: Cascade)
+  proyecto        String
+  clienteId       String
+  cliente         MasterCliente              @relation(fields: [clienteId], references: [id])
+  ubicacion       String
+  tallerDestinoId String
+  tallerDestino   MasterTaller               @relation(fields: [tallerDestinoId], references: [id])
+  fechaEstimada   DateTime
+  fechaTarifa     DateTime
+  maquinas        OverhaulNecesidadMaquina[]
+  version         Int                        @default(1)
+  isCompleted     Boolean                    @default(false)
+  completedAt     DateTime?
+  createdById     String?
+  createdBy       User?                      @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
 
   @@index([overhaulId, version])
 }
 
+model OverhaulNecesidadMaquina {
+  id          String            @id @default(cuid())
+  necesidadId String
+  necesidad   OverhaulNecesidad @relation(fields: [necesidadId], references: [id], onDelete: Cascade)
+  maquinaId   String
+  maquina     Maquina           @relation(fields: [maquinaId], references: [id])
+  createdAt   DateTime          @default(now())
+
+  @@unique([necesidadId, maquinaId])
+}
+
 model OverhaulAlcance {
-  id          String    @id @default(cuid())
+  id          String                  @id @default(cuid())
   overhaulId  String
-  overhaul    Overhaul  @relation(fields: [overhaulId], references: [id], onDelete: Cascade)
-  resumen     String    @default("")
-  systems     Json      @default("[]")
-  version     Int       @default(1)
-  isCompleted Boolean   @default(false)
+  overhaul    Overhaul                @relation(fields: [overhaulId], references: [id], onDelete: Cascade)
+  resumen     String                  @default("")
+  systems     OverhaulAlcanceSystem[]
+  version     Int                     @default(1)
+  isCompleted Boolean                 @default(false)
   completedAt DateTime?
-  updatedAt   DateTime  @updatedAt
+  createdById String?
+  createdBy   User?                   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
 
   @@index([overhaulId, version])
+}
+
+model OverhaulAlcanceSystem {
+  id         String                     @id @default(cuid())
+  alcanceId  String
+  alcance    OverhaulAlcance            @relation(fields: [alcanceId], references: [id], onDelete: Cascade)
+  name       String
+  position   Int
+  components OverhaulAlcanceComponent[]
+  createdAt  DateTime                   @default(now())
+
+  @@unique([alcanceId, position])
+}
+
+model OverhaulAlcanceComponent {
+  id          String                @id @default(cuid())
+  systemId    String
+  system      OverhaulAlcanceSystem @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  name        String
+  state       ComponentState
+  tallerId    String?
+  taller      MasterTaller?         @relation(fields: [tallerId], references: [id])
+  atencionId  String?
+  atencion    MasterAtencion?       @relation(fields: [atencionId], references: [id])
+  comentarios String?
+  position    Int
+  createdAt   DateTime              @default(now())
+
+  @@unique([systemId, position])
 }
 
 model OverhaulTarifas {
@@ -92,6 +173,8 @@ model OverhaulTarifas {
   version     Int                      @default(1)
   isCompleted Boolean                  @default(false)
   completedAt DateTime?
+  createdById String?
+  createdBy   User?                    @relation(fields: [createdById], references: [id], onDelete: SetNull)
   createdAt   DateTime                 @default(now())
   updatedAt   DateTime                 @updatedAt
 
@@ -160,23 +243,43 @@ model OverhaulTarifaParte {
 }
 
 model OverhaulPropuesta {
-  id                     String    @id @default(cuid())
+  id                     String                                @id @default(cuid())
   overhaulId             String
-  overhaul               Overhaul  @relation(fields: [overhaulId], references: [id], onDelete: Cascade)
+  overhaul               Overhaul                              @relation(fields: [overhaulId], references: [id], onDelete: Cascade)
   emision                DateTime?
-  contacto               Json      @default("{}")
-  condiciones            String[]  @default([])
-  inclusionesExclusiones Json      @default("[]")
+  contactoNombre         String                                @default("")
+  contactoUbicacion      String                                @default("")
+  contactoTelefono       String?
+  contactoEmail          String?
+  condiciones            String[]                              @default([])
+  inclusionesExclusiones OverhaulPropuestaInclusionExclusion[]
   fechaReparacion        DateTime?
-  terminosGenerales      String    @default("")
-  garantias              String    @default("")
-  propuestaUri           String    @default("")
-  version                Int       @default(1)
-  isCompleted            Boolean   @default(false)
+  terminosGenerales      String                                @default("")
+  garantias              String                                @default("")
+  propuestaUri           String                                @default("")
+  version                Int                                   @default(1)
+  isCompleted            Boolean                               @default(false)
   completedAt            DateTime?
-  updatedAt              DateTime  @updatedAt
+  createdById            String?
+  createdBy              User?                                 @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt              DateTime                              @default(now())
+  updatedAt              DateTime                              @updatedAt
 
   @@index([overhaulId, version])
+}
+
+model OverhaulPropuestaInclusionExclusion {
+  id          String            @id @default(cuid())
+  propuestaId String
+  propuesta   OverhaulPropuesta @relation(fields: [propuestaId], references: [id], onDelete: Cascade)
+  systemName  String
+  components  String[]          @default([])
+  inclusiones String[]          @default([])
+  exclusiones String[]          @default([])
+  position    Int
+  createdAt   DateTime          @default(now())
+
+  @@unique([propuestaId, position])
 }
 
 model OverhaulPlanificacion {
@@ -188,41 +291,82 @@ model OverhaulPlanificacion {
   version     Int       @default(1)
   isCompleted Boolean   @default(false)
   completedAt DateTime?
+  createdById String?
+  createdBy   User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   @@index([overhaulId, version])
 }
 
 model MasterCliente {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  contact   String?
-  email     String?
-  createdAt DateTime @default(now())
+  id          String              @id @default(cuid())
+  name        String              @unique
+  contact     String?
+  email       String?
+  maquinas    Maquina[]
+  necesidades OverhaulNecesidad[]
+  createdAt   DateTime            @default(now())
 }
 
 model MasterTaller {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  location  String?
-  capacity  Int?
-  createdAt DateTime @default(now())
+  id          String                     @id @default(cuid())
+  name        String                     @unique
+  location    String?
+  capacity    Int?
+  necesidades OverhaulNecesidad[]
+  componentes OverhaulAlcanceComponent[]
+  createdAt   DateTime                   @default(now())
 }
 
 model MasterAtencion {
-  id          String   @id @default(cuid())
-  name        String   @unique
+  id          String                     @id @default(cuid())
+  name        String                     @unique
   description String?
-  createdAt   DateTime @default(now())
+  componentes OverhaulAlcanceComponent[]
+  createdAt   DateTime                   @default(now())
+}
+
+model MasterFabricante {
+  id        String                @id @default(cuid())
+  name      String                @unique
+  modelos   MasterMaquinaModelo[]
+  createdAt DateTime              @default(now())
 }
 
 model MasterMaquinaModelo {
-  id          String         @id @default(cuid())
-  modelo      String         @unique
-  type        String
-  description String?
-  systems     MasterSystem[]
-  createdAt   DateTime       @default(now())
+  id           String            @id @default(cuid())
+  modelo       String            @unique
+  type         String
+  description  String?
+  fabricanteId String?
+  fabricante   MasterFabricante? @relation(fields: [fabricanteId], references: [id])
+  categoria    CategoriaFlota?
+  flota        FlotaTipo?
+  systems      MasterSystem[]
+  maquinas     Maquina[]
+  createdAt    DateTime          @default(now())
+
+  @@index([fabricanteId])
+}
+
+model Maquina {
+  id          String                     @id @default(cuid())
+  modeloId    String
+  modelo      MasterMaquinaModelo        @relation(fields: [modeloId], references: [id])
+  clienteId   String
+  cliente     MasterCliente              @relation(fields: [clienteId], references: [id])
+  serie       String
+  idEquipo    String?                    @unique
+  estado      String                     @default("Activo")
+  fechaInicio DateTime?
+  fechaFin    DateTime?
+  necesidades OverhaulNecesidadMaquina[]
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
+
+  @@unique([modeloId, serie])
+  @@index([clienteId])
 }
 
 model MasterSystem {

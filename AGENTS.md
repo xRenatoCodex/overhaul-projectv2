@@ -103,19 +103,21 @@ packages/ui/                      # Component library
 
 ## Data Models
 
-All entities listed below map to Prisma models. Use these as reference when writing `schema.prisma`.
+All entities listed below map to Prisma models. This mirrors the actual `prisma/schema.prisma` — keep both in sync when either changes.
 
 ### Master Data Entities
 
-Core reference data maintained by admins.
+Core reference/catalog data. Free-text form inputs (datalist-backed) resolve to these via find-or-create (upsert by unique `name`), so new entries typed by users are registered automatically.
 
 #### MasterCliente
-Client/customer records.
+Client/customer (mine site) records.
 ```
 id: String @id @default(cuid())
-name: String
+name: String @unique
 contact: String?
 email: String?
+maquinas: Maquina[]
+necesidades: OverhaulNecesidad[]
 createdAt: DateTime @default(now())
 ```
 
@@ -123,9 +125,30 @@ createdAt: DateTime @default(now())
 Workshop/service center locations.
 ```
 id: String @id @default(cuid())
-name: String
+name: String @unique
 location: String?
 capacity: Int?
+necesidades: OverhaulNecesidad[]
+componentes: OverhaulAlcanceComponent[]
+createdAt: DateTime @default(now())
+```
+
+#### MasterAtencion
+Service types/attention categories (e.g., Presupuesto, Tarifa Fija, Paralelo).
+```
+id: String @id @default(cuid())
+name: String @unique
+description: String?
+componentes: OverhaulAlcanceComponent[]
+createdAt: DateTime @default(now())
+```
+
+#### MasterFabricante
+Machine manufacturer catalog (e.g., CATERPILLAR, ATLAS COPCO, EPIROC).
+```
+id: String @id @default(cuid())
+name: String @unique
+modelos: MasterMaquinaModelo[]
 createdAt: DateTime @default(now())
 ```
 
@@ -133,19 +156,26 @@ createdAt: DateTime @default(now())
 Machine model catalog.
 ```
 id: String @id @default(cuid())
-modelo: String
-type: String
+modelo: String @unique
+type: String                         // free-text label (e.g., "Camión Minero")
 description: String?
+fabricanteId: String?
+fabricante: MasterFabricante?
+categoria: CategoriaFlota?            // EXPANDIDA | TRADICIONAL
+flota: FlotaTipo?                     // DRILLS | SHOVEL | AUX_FLEET | SUPPORT | TRUCKS
+systems: MasterSystem[]
+maquinas: Maquina[]
 createdAt: DateTime @default(now())
 ```
 
 #### MasterSystem
-Predefined system hierarchy for machines (e.g., Electrical, Hydraulic, Cooling).
+Predefined system hierarchy for machines (e.g., Power train, Sistema hidráulico).
 ```
 id: String @id @default(cuid())
 name: String
 modelo: MasterMaquinaModelo @relation(...)
 description: String?
+components: MasterComponent[]
 createdAt: DateTime @default(now())
 ```
 
@@ -159,12 +189,22 @@ code: String?
 createdAt: DateTime @default(now())
 ```
 
-#### MasterAtencion
-Service types/attention categories (e.g., Preventive, Corrective, Emergency).
+#### Maquina
+Asset registry: a physical machine (model + serial) owned by a client, independent of any specific overhaul.
 ```
 id: String @id @default(cuid())
-name: String
-description: String?
+modeloId: String
+modelo: MasterMaquinaModelo @relation(...)
+clienteId: String
+cliente: MasterCliente @relation(...)
+serie: String
+idEquipo: String? @unique
+estado: String @default("Activo")
+fechaInicio: DateTime?
+fechaFin: DateTime?
+necesidades: OverhaulNecesidadMaquina[]
+
+@@unique([modeloId, serie])
 ```
 
 ---
@@ -173,23 +213,22 @@ description: String?
 
 #### Overhaul (Root Entity)
 
-Represents a single overhaul project from start to finish. Contains references to each stage; versioning handled per-stage.
+Represents a single overhaul project from start to finish. Each stage is versioned via **append-only rows** (not update-in-place): every save inserts a new row for that stage, and reads take the latest by `[version desc, updatedAt desc]`.
 
 ```
 Overhaul {
   id: String @id @default(cuid())
-  
-  // Stage references (1:1 relationships)
-  necesidad: OverhaulNecesidad @relation("OverhaulNecesidad")
-  alcance: OverhaulAlcance @relation("OverhaulAlcance")
-  tarifa: OverhaulTarifa @relation("OverhaulTarifa")
-  propuesta: OverhaulPropuesta @relation("OverhaulPropuesta")
-  planificacion: OverhaulPlanificacion @relation("OverhaulPlanificacion")
-  
+
+  // Stage version history (1:N — latest row per stage is the active version)
+  necesidad: OverhaulNecesidad[]
+  alcance: OverhaulAlcance[]
+  tarifas: OverhaulTarifas[]
+  propuesta: OverhaulPropuesta[]
+  planificacion: OverhaulPlanificacion[]
+
   // State machine
-  state: "Definicion" | "Aprobado" | "Cancelado"
-  
-  // Metadata
+  state: OverhaulState   // definicion | aprobado | cancelado
+
   createdAt: DateTime @default(now())
   updatedAt: DateTime @updatedAt
 }
@@ -200,164 +239,107 @@ Overhaul {
 ### Stage 1: Necesidad
 
 **Purpose**: Capture initial customer requirement—machines to overhaul, location, target dates.
-**Versioning**: Increments when machines/target dates change. Cascades: Alcance+ reset `isCompleted: false`.
-**Lifecycle**: Created during intake; locked when moved to Alcance stage.
+**Versioning**: New row inserted on every save. Cascades: Alcance+ reset `isCompleted: false`.
 
 #### OverhaulNecesidad
 ```
 OverhaulNecesidad {
   id: String @id @default(cuid())
-  overhaul: Overhaul @relation("OverhaulNecesidad")
-  
-  // Core data
+  overhaul: Overhaul @relation(...)
+
   proyecto: String
+  clienteId: String
   cliente: MasterCliente @relation(...)
   ubicacion: String
-  taller_destino: MasterTaller @relation(...)
-  
-  // Dates
-  fecha_estimada: DateTime
-  fecha_tarifa: DateTime
-  
-  // Machine requirements
-  maquinas: MaquinaRequirement[]
-  
-  // Versioning & completion
+  tallerDestinoId: String
+  tallerDestino: MasterTaller @relation(...)
+
+  fechaEstimada: DateTime
+  fechaTarifa: DateTime
+  maquinas: OverhaulNecesidadMaquina[]
+
   version: Int @default(1)
   isCompleted: Boolean @default(false)
-  
+  completedAt: DateTime?
+  createdById: String?
+  createdBy: User? @relation(...)
+
   createdAt: DateTime @default(now())
   updatedAt: DateTime @updatedAt
 }
 ```
 
-#### Maquina
-Machine instance linked to requirement.
+#### OverhaulNecesidadMaquina
+Join table linking a necesidad version to the machines involved (found-or-created in the `Maquina` catalog by model + serial).
 ```
-Maquina {
-  id: String @id @default(cuid())
-  modelo: MasterMaquinaModelo @relation(...)
-  serie: String
-  createdAt: DateTime @default(now())
-}
-```
+id: String @id @default(cuid())
+necesidadId: String
+necesidad: OverhaulNecesidad @relation(...)
+maquinaId: String
+maquina: Maquina @relation(...)
+createdAt: DateTime @default(now())
 
-#### MaquinaRequirement
-Links a machine to an overhaul requirement; captures its state.
-```
-MaquinaRequirement {
-  id: String @id @default(cuid())
-  maquina: Maquina @relation(...)
-  necesidad: OverhaulNecesidad @relation(...)
-  
-  horometro: Float
-  actual_state: String
-  final_configuration: String
-  
-  createdAt: DateTime @default(now())
-}
+@@unique([necesidadId, maquinaId])
 ```
 
 ---
 
 ### Stage 2: Alcance
 
-**Purpose**: Define systems to overhaul, additional requirements, and improvements requested.
-**Versioning**: Increments when systems/components change. Cascades: Tarifa+ reset `isCompleted: false`.
-**Lifecycle**: Populated from Necesidad; may reference multiple machines and systems.
+**Purpose**: Define systems and components to overhaul, including workshop and attention assignment per component.
+**Versioning**: New row inserted on every save. Cascades: Tarifa+ reset `isCompleted: false`.
 
 #### OverhaulAlcance
 ```
 OverhaulAlcance {
   id: String @id @default(cuid())
-  overhaul: Overhaul @relation("OverhaulAlcance")
-  
+  overhaul: Overhaul @relation(...)
+
+  resumen: String @default("")
   systems: OverhaulAlcanceSystem[]
-  requerimientos_adicionales: OverhaulAlcanceRequerimiento[]
-  mejoras_solicitadas: OverhaulAlcanceMejora[]
-  mejoras_aplicadas: String[]
-  
+
   version: Int @default(1)
   isCompleted: Boolean @default(false)
-  
+  completedAt: DateTime?
+  createdById: String?
+  createdBy: User? @relation(...)
+
   createdAt: DateTime @default(now())
   updatedAt: DateTime @updatedAt
 }
 ```
 
 #### OverhaulAlcanceSystem
-Maps a machine's system within scope.
+A system in scope for this alcance version (ordered by `position`).
 ```
-OverhaulAlcanceSystem {
-  id: String @id @default(cuid())
-  alcance: OverhaulAlcance @relation(...)
-  maquina: MaquinaRequirement @relation(...)
-  system: OverhaulSystem @relation(...)
-  
-  createdAt: DateTime @default(now())
-}
+id: String @id @default(cuid())
+alcanceId: String
+alcance: OverhaulAlcance @relation(...)
+name: String
+position: Int
+components: OverhaulAlcanceComponent[]
+createdAt: DateTime @default(now())
+
+@@unique([alcanceId, position])
 ```
 
-#### OverhaulSystem
-Copy of MasterSystem for editable overhaul-specific context. Contains components in scope.
+#### OverhaulAlcanceComponent
+Component within a system; tracks service type, workshop and attention assignment.
 ```
-OverhaulSystem {
-  id: String @id @default(cuid())
-  name: String
-  modelo: MasterMaquinaModelo @relation(...)
-  components: OverhaulComponent[]
-  
-  createdAt: DateTime @default(now())
-}
-```
+id: String @id @default(cuid())
+systemId: String
+system: OverhaulAlcanceSystem @relation(...)
+name: String
+state: ComponentState   // Nuevo | Reman | RGeneral | Resellado | Reutilizar | Cliente
+tallerId: String?
+taller: MasterTaller? @relation(...)
+atencionId: String?
+atencion: MasterAtencion? @relation(...)
+comentarios: String?
+position: Int
+createdAt: DateTime @default(now())
 
-#### OverhaulComponent
-Component within an overhaul system; tracks service type and state.
-```
-OverhaulComponent {
-  id: String @id @default(cuid())
-  system: OverhaulSystem @relation(...)
-  
-  name: String
-  state: "Nuevo" | "Reman" | "RGeneral" | "Resellado" | "Reutilizar" | "Cliente"
-  taller: MasterTaller @relation(...)
-  atencion: MasterAtencion @relation(...)
-  comentarios: String?
-  
-  createdAt: DateTime @default(now())
-  updatedAt: DateTime @updatedAt
-}
-```
-
-#### OverhaulAlcanceRequerimiento
-Additional customer requirements beyond standard systems.
-```
-OverhaulAlcanceRequerimiento {
-  id: String @id @default(cuid())
-  alcance: OverhaulAlcance @relation(...)
-  
-  adicional: String
-  detalle: String
-  especificacion: String? // URL to Google Cloud Storage
-  
-  createdAt: DateTime @default(now())
-}
-```
-
-#### OverhaulAlcanceMejora
-Improvements: service letters, operational enhancements, etc.
-```
-OverhaulAlcanceMejora {
-  id: String @id @default(cuid())
-  alcance: OverhaulAlcance @relation(...)
-  
-  tipo: "ServiceLetter" | "ServiceMagazine" | "MejoraOperacion"
-  descripcion: String
-  codigo: String?
-  prioridad_comercial: "Baja" | "Media" | "Alta"
-  
-  createdAt: DateTime @default(now())
-}
+@@unique([systemId, position])
 ```
 
 ---
@@ -365,21 +347,25 @@ OverhaulAlcanceMejora {
 ### Stage 3: Tarifa
 
 **Purpose**: Break down work into jobs, components, parts; calculate labor and material costs.
-**Versioning**: Increments when parts/hours/pricing change. Cascades: Propuesta+ reset `isCompleted: false`.
-**Lifecycle**: Generated from Alcance; reviewed by pricing team; locked before proposal.
+**Versioning**: New row inserted on every save. Cascades: Propuesta+ reset `isCompleted: false`.
 
-#### OverhaulTarifa
+#### OverhaulTarifas
 ```
-OverhaulTarifa {
+OverhaulTarifas {
   id: String @id @default(cuid())
-  overhaul: Overhaul @relation("OverhaulTarifa")
-  
+  overhaul: Overhaul @relation(...)
+
+  currency: Currency @default(USD)   // USD | PEN
+  total: Decimal @default(0)
   groups: OverhaulTarifaGroupJob[]
   partes: OverhaulTarifaParte[]
-  
+
   version: Int @default(1)
   isCompleted: Boolean @default(false)
-  
+  completedAt: DateTime?
+  createdById: String?
+  createdBy: User? @relation(...)
+
   createdAt: DateTime @default(now())
   updatedAt: DateTime @updatedAt
 }
@@ -390,7 +376,7 @@ Logical grouping of work (e.g., "Engine Overhaul", "Hydraulic System").
 ```
 OverhaulTarifaGroupJob {
   id: String @id @default(cuid())
-  tarifa: OverhaulTarifa @relation(...)
+  tarifa: OverhaulTarifas @relation(...)
   
   name: String
   jobs: OverhaulTarifaJob[]
@@ -421,7 +407,7 @@ Part/component replacement with full inventory & cost tracking.
 ```
 OverhaulTarifaParte {
   id: String @id @default(cuid())
-  tarifa: OverhaulTarifa @relation(...)
+  tarifa: OverhaulTarifas @relation(...)
   
   segmentacion: String
   componentCode: String
@@ -452,146 +438,79 @@ OverhaulTarifaParte {
 ### Stage 4: Propuesta
 
 **Purpose**: Generate commercial proposal for customer (formal offer, terms, delivery dates).
-**Versioning**: Proposal is typically versioned per customer review cycle; cascades to Planificación.
-**Lifecycle**: Based on Tarifa; may iterate multiple times; when accepted, Overhaul.state → "Aprobado".
-**State Control**: Overhaul state transitions happen here (Definicion → Aprobado → Cancelado).
+**Versioning**: New row inserted on every save. Cascades: Planificación resets `isCompleted: false`.
+**State Control**: `Overhaul.state` transitions (`definicion` → `aprobado`) happen in this stage.
 
 #### OverhaulPropuesta
 ```
 OverhaulPropuesta {
   id: String @id @default(cuid())
-  overhaul: Overhaul @relation("OverhaulPropuesta")
-  
-  emision: DateTime
-  contacto: PropostaContact
-  
-  condiciones: String[]
-  inclusiones_exclusiones: PropostaInclusionExclusion[]
-  
-  fechaReparacion: DateTime
-  terminosGenerales: String
-  garantias: String
-  propuestaUri: String? // URL to Google Cloud Storage (PDF)
-  
+  overhaul: Overhaul @relation(...)
+
+  emision: DateTime?
+  contactoNombre: String @default("")
+  contactoUbicacion: String @default("")
+  contactoTelefono: String?
+  contactoEmail: String?
+
+  condiciones: String[] @default([])
+  inclusionesExclusiones: OverhaulPropuestaInclusionExclusion[]
+
+  fechaReparacion: DateTime?
+  terminosGenerales: String @default("")
+  garantias: String @default("")
+  propuestaUri: String @default("")   // URL to Google Cloud Storage (PDF)
+
   version: Int @default(1)
   isCompleted: Boolean @default(false)
-  
+  completedAt: DateTime?
+  createdById: String?
+  createdBy: User? @relation(...)
+
   createdAt: DateTime @default(now())
   updatedAt: DateTime @updatedAt
 }
 ```
 
-#### PropostaContact (Embedded)
-Contact information in proposal.
+#### OverhaulPropuestaInclusionExclusion
+Per-system breakdown of what is included/excluded (ordered by `position`).
 ```
-{
-  name: String
-  location: String
-  phone: String?
-  email: String?
-}
-```
+id: String @id @default(cuid())
+propuestaId: String
+propuesta: OverhaulPropuesta @relation(...)
+systemName: String
+components: String[] @default([])
+inclusiones: String[] @default([])
+exclusiones: String[] @default([])
+position: Int
+createdAt: DateTime @default(now())
 
-#### PropostaInclusionExclusion (Embedded)
-Per-system breakdown of what is included/excluded.
-```
-{
-  systems: [
-    {
-      system: String // System name
-      components: OverhaulComponent[]
-      inclusiones: String[]
-      exclusiones: String[]
-    }
-  ]
-}
+@@unique([propuestaId, position])
 ```
 
 ---
 
 ### Stage 5: Planificación
 
-**Purpose**: Schedule parts procurement, workshop logistics, and work execution.
-**Versioning**: Increments when parts availability or logistics change.
-**Lifecycle**: Final stage; locks in execution plan; can only modify if earlier stages change.
+**Purpose**: Schedule the overhaul execution window.
+**Versioning**: New row inserted on every save. Final stage; no downstream cascade.
+**Note**: Parts procurement/logistics detail (risk, regional stock, etc.) is not yet modeled relationally — currently out of scope for this schema.
 
 #### OverhaulPlanificacion
 ```
 OverhaulPlanificacion {
   id: String @id @default(cuid())
-  overhaul: Overhaul @relation("OverhaulPlanificacion")
-  
-  repuestos: OverhaulPlanificacionRepuesto[]
-  archivo: String? // URL to Google Cloud Storage (planning doc)
-  
+  overhaul: Overhaul @relation(...)
+
+  fechaInicio: DateTime?
+  fechaFin: DateTime?
+
   version: Int @default(1)
   isCompleted: Boolean @default(false)
-  
-  createdAt: DateTime @default(now())
-  updatedAt: DateTime @updatedAt
-}
-```
+  completedAt: DateTime?
+  createdById: String?
+  createdBy: User? @relation(...)
 
-#### OverhaulPlanificacionRepuesto
-Detailed parts procurement record with inventory, risk, and regional stock.
-```
-OverhaulPlanificacionRepuesto {
-  id: String @id @default(cuid())
-  planificacion: OverhaulPlanificacion @relation(...)
-  
-  // Identification
-  item: Int
-  modelo: String
-  numeroDeParte: String
-  descripcion: String
-  cantidad: Int
-  tipoDeRegistro: String // e.g., "S" (Stock), "E" (Special order)
-  
-  // Inventory
-  onHand: Int
-  onOrderQuantity: Int
-  inProcess: Int
-  moneda: Float
-  stockSeguridadMin: Int
-  stockMaximo: Int
-  
-  // Replacement & Packaging
-  codigoDeReemplazo: String?
-  materialDeReemplazo: String?
-  indicadorMontajeManguera: "N" | "S"
-  cantidadDePaquetes: Int
-  metodoDePedido: String
-  
-  // Weight & Classification
-  pesoBruto: Float
-  unidadDePeso: String // e.g., "KG"
-  grupoDeArticulos: String
-  indicadorNoRetornable: "N" | "S"
-  
-  // Risk & Category Analysis
-  month03Risk: "GREEN" | "AMBER" | "RED"
-  month49Risk: "GREEN" | "AMBER" | "RED"
-  category: String
-  
-  // Procurement Totals
-  qtyCompra: Int
-  dnTotal: Float
-  pesoTotal: Float
-  
-  // Regional Stock Distribution
-  miamiYMor: Int
-  usa: Int
-  brasil: Int
-  grm: Int
-  overseas: Int
-  sto: Int
-  
-  // Status & Notes
-  estadoFesa: String
-  stockCat: String
-  observaciones: String?
-  plan: String?
-  
   createdAt: DateTime @default(now())
   updatedAt: DateTime @updatedAt
 }
@@ -627,13 +546,13 @@ The `Overhaul.state` field tracks overall project status. State transitions only
 
 ```
 ┌─────────────────┐
-│   Definicion    │  ← Initial state (project intake)
+│   definicion    │  ← Initial state (project intake)
 │  (Planning)     │
 └────────┬────────┘
          │ (Proposal approved by customer)
          ↓
 ┌─────────────────┐
-│   Aprobado      │  ← Active overhaul (work in progress)
+│   aprobado      │  ← Active overhaul (work in progress)
 │  (Approved)     │
 └────────┬────────┘
          │ (Cancel or complete)
@@ -645,9 +564,9 @@ The `Overhaul.state` field tracks overall project status. State transitions only
 ```
 
 **Transitions**:
-- `Definicion` → `Aprobado`: User accepts proposal and customer confirms in stage 4
-- `Aprobado` → `Cancelado`: User cancels or customer withdraws (any stage)
-- `Cancelado`: Final state; no further changes
+- `definicion` → `aprobado`: User accepts proposal and customer confirms in stage 4
+- `aprobado` → `cancelado`: User cancels or customer withdraws (any stage)
+- `cancelado`: Final state; no further changes
 
 ---
 
@@ -662,17 +581,19 @@ Each stage collects information that customers may revise. Versioning ensures:
 
 ### Versioning Rules
 
-Each stage entity tracks a `version: Int` field:
+Each stage entity tracks a `version: Int` field, but versions are **not** updated in place — every save does a Prisma `create` of a brand-new row for that stage (never an `update` to the previous version row). Reads always take the latest row per stage via `orderBy: [{ version: "desc" }, { updatedAt: "desc" }], take: 1`.
 
 ```
 version: Int @default(1)
 isCompleted: Boolean @default(false)
+completedAt: DateTime?
+createdById: String?
 ```
 
-**When version increments**:
+**When a new version is created**:
 - User edits stage data and saves
-- Backend increments `stage.version`
-- All downstream stages: `isCompleted: false` + optional notification
+- `OverhaulEntity.updateNecesidad/updateAlcance/...` bumps `stage.version` in memory and calls `invalidateDownstreamFrom(stage)`, which resets `isCompleted: false` / `completedAt: null` on every downstream stage (in memory only — no version bump for those stages)
+- `PrismaOverhaulRepository.save()` persists all 5 stages as new rows in one `overhaul.update({ data: { necesidad: { create: ... }, alcance: { create: ... }, ... } })` call, so downstream stages get a new row too (same version number, just `isCompleted` reset) — this keeps every stage's row count in sync for history/monitor queries
 
 **Cascade Mapping**:
 ```
@@ -701,38 +622,42 @@ Planificacion (5) changes
 ### Implementation Pattern
 
 ```typescript
-// In OverhaulService or update endpoint
-async updateNecesidad(overhaul_id: string, data: Partial<OverhaulNecesidad>) {
-  // 1. Update stage
-  const updated = await prisma.overHaulNecesidad.update({
-    where: { overhaul_id },
-    data: {
-      ...data,
-      version: { increment: 1 } // Increment version
-    }
-  });
+// packages/backend/src/services/overhaul-service.ts
+public async updateNecesidad(id: string, input: CreateNecesidadInput, actor: string | null) {
+  const overhaul = await this.getOverhaul(id)
+  const now = new Date().toISOString()
 
-  // 2. Cascade: reset downstream stages
-  await prisma.overHaulAlcance.update({
-    where: { overhaul_id },
-    data: { isCompleted: false }
-  });
-  await prisma.overHaulTarifa.update({
-    where: { overhaul_id },
-    data: { isCompleted: false }
-  });
-  await prisma.overHaulPropuesta.update({
-    where: { overhaul_id },
-    data: { isCompleted: false }
-  });
-  await prisma.overHaulPlanificacion.update({
-    where: { overhaul_id },
-    data: { isCompleted: false }
-  });
+  overhaul.actor = actor               // becomes createdById on the new rows
+  overhaul.updateNecesidad(input, now) // bumps version, resets downstream isCompleted
+  await this.overhaulRepository.save(overhaul)
 
-  return updated;
+  return { id: overhaul.id }
 }
 ```
+
+```typescript
+// packages/backend/src/repositories/prisma-overhaul-repository.ts
+public async save(overhaul: OverhaulEntity): Promise<void> {
+  const [necesidadData, alcanceData] = await Promise.all([
+    this.necesidadSnapshot(overhaul), // resolves cliente/taller/maquinas to FK ids
+    this.alcanceSnapshot(overhaul),   // resolves taller/atencion to FK ids per component
+  ])
+
+  await this.prisma.overhaul.update({
+    where: { id: overhaul.id },
+    data: {
+      state: overhaul.state,
+      necesidad: { create: necesidadData },
+      alcance: { create: alcanceData },
+      tarifas: { create: this.tarifasSnapshot(overhaul) },
+      propuesta: { create: this.propuestaSnapshot(overhaul) },
+      planificacion: { create: this.planificacionSnapshot(overhaul) },
+    },
+  })
+}
+```
+
+Free-text cliente/taller/modelo/atención values (from datalist-backed form inputs) are resolved via `upsert(where: { name })` inside the snapshot builders, so new catalog entries get registered automatically instead of being rejected.
 
 ---
 
@@ -845,39 +770,36 @@ DELETE /api/overhauls/:id                  # Soft-delete or cancel
 
 ### User Model
 
-Users stored in PostgreSQL via next-auth with session-based auth.
+Users stored in PostgreSQL; next-auth uses the `Credentials` provider (JWT-based sessions, no DB `Session` table).
 
 ```
 User {
   id: String @id @default(cuid())
+  name: String
   email: String @unique
-  name: String?
   passwordHash: String
-  role: "admin" | "engineer" | "approver" | "viewer"
-  
-  sessions: Session[]
-  
+  role: UserRole   // admin | commercial | pricing | planning
+
+  // Author back-relations (createdById FK on every stage model)
+  necesidades: OverhaulNecesidad[]
+  alcances: OverhaulAlcance[]
+  tarifas: OverhaulTarifas[]
+  propuestas: OverhaulPropuesta[]
+  planificaciones: OverhaulPlanificacion[]
+
   createdAt: DateTime @default(now())
   updatedAt: DateTime @updatedAt
 }
-
-Session {
-  id: String @id @default(cuid())
-  sessionToken: String @unique
-  userId: String
-  user: User @relation(...)
-  
-  expires: DateTime
-  createdAt: DateTime @default(now())
-}
 ```
+
+`getCurrentActor()` (`apps/web/lib/current-actor.ts`) returns the signed-in `session.user.id`, which flows through `OverhaulEntity.actor` into every stage snapshot's `createdById`.
 
 ### Role-Based Access Control
 
-- **Admin**: Full access (user management, all overhauls)
-- **Engineer**: Create/edit overhauls; manage Necesidad through Tarifa
-- **Approver**: Review and approve Propuesta; can change Overhaul state
-- **Viewer**: Read-only access to overhauls
+- **admin**: Full access (user management, all overhauls)
+- **commercial**: Create/edit Necesidad, Alcance; manage Propuesta
+- **pricing**: Manage Tarifa
+- **planning**: Manage Planificación
 
 Implement RBAC in middleware or API route guards:
 

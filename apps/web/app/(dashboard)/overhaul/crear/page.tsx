@@ -1,14 +1,16 @@
 "use client"
 
-import { FormEvent, useEffect, useState } from "react"
+import { FormEvent, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowRight, CalendarDays, Plus, Trash2, Wrench } from "lucide-react"
 
-import { firstValidationError } from "@workspace/backend/lib/validators/common"
 import { createNecesidadSchema } from "@workspace/backend/lib/validators/overhaul"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Separator } from "@workspace/ui/components/separator"
+
+import { FormMessage } from "@/components/form-message"
+import { toFieldErrors, type FieldErrors } from "@/lib/form-errors"
 
 type Machine = {
   model: string
@@ -16,6 +18,26 @@ type Machine = {
 }
 
 const initialMachine: Machine = { model: "", serial: "" }
+
+type NecesidadValues = {
+  proyecto: string
+  cliente: string
+  ubicacion: string
+  tallerDestino: string
+  fechaEstimada: string
+  fechaTarifa: string
+  maquinas: Machine[]
+}
+
+const emptyValues: NecesidadValues = {
+  proyecto: "",
+  cliente: "",
+  ubicacion: "",
+  tallerDestino: "",
+  fechaEstimada: "",
+  fechaTarifa: "",
+  maquinas: [{ ...initialMachine }],
+}
 
 type MasterDataOptions = {
   clientes: string[]
@@ -33,10 +55,25 @@ const emptyMasterData: MasterDataOptions = {
 
 export default function OverhaulCrearPage() {
   const router = useRouter()
-  const [machines, setMachines] = useState<Machine[]>([{ ...initialMachine }])
+  const [values, setValues] = useState<NecesidadValues>(emptyValues)
+  const [showErrors, setShowErrors] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [masterData, setMasterData] = useState(emptyMasterData)
+
+  const parsed = useMemo(
+    () =>
+      createNecesidadSchema.safeParse({
+        ...values,
+        maquinas: values.maquinas.map((machine) => ({
+          model: machine.model.trim(),
+          serial: machine.serial.trim(),
+        })),
+      }),
+    [values],
+  )
+  const fieldErrors: FieldErrors = parsed.success ? {} : toFieldErrors(parsed.error)
+  const errorFor = (path: string) => (showErrors ? fieldErrors[path] : undefined)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -54,43 +91,39 @@ export default function OverhaulCrearPage() {
     return () => controller.abort()
   }, [])
 
+  function setValue<Key extends keyof NecesidadValues>(
+    field: Key,
+    value: NecesidadValues[Key],
+  ) {
+    setValues((current) => ({ ...current, [field]: value }))
+  }
+
   function updateMachine(index: number, field: keyof Machine, value: string) {
-    setMachines((current) =>
-      current.map((machine, machineIndex) =>
+    setValues((current) => ({
+      ...current,
+      maquinas: current.maquinas.map((machine, machineIndex) =>
         machineIndex === index ? { ...machine, [field]: value } : machine,
       ),
-    )
+    }))
   }
 
   function addMachine() {
-    setMachines((current) => [...current, { ...initialMachine }])
+    setValue("maquinas", [...values.maquinas, { ...initialMachine }])
   }
 
   function removeMachine(index: number) {
-    setMachines((current) => current.filter((_, machineIndex) => machineIndex !== index))
+    setValue(
+      "maquinas",
+      values.maquinas.filter((_, machineIndex) => machineIndex !== index),
+    )
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError("")
+    setShowErrors(true)
 
-    const formData = new FormData(event.currentTarget)
-    const payload = {
-      proyecto: String(formData.get("proyecto") ?? "").trim(),
-      cliente: String(formData.get("cliente") ?? "").trim(),
-      ubicacion: String(formData.get("ubicacion") ?? "").trim(),
-      tallerDestino: String(formData.get("tallerDestino") ?? "").trim(),
-      fechaEstimada: String(formData.get("fechaEstimada") ?? ""),
-      fechaTarifa: String(formData.get("fechaTarifa") ?? ""),
-      maquinas: machines.map((machine) => ({
-        model: machine.model.trim(),
-        serial: machine.serial.trim(),
-      })),
-    }
-
-    const parsed = createNecesidadSchema.safeParse(payload)
     if (!parsed.success) {
-      setError(firstValidationError(parsed.error))
       return
     }
 
@@ -121,7 +154,7 @@ export default function OverhaulCrearPage() {
   }
 
   return (
-    <section className="mx-auto w-full max-w-5xl space-y-8">
+    <section className="w-full h-full space-y-8 overflow-y-auto scrollbar-none">
       <div className="flex flex-col gap-4 border-b pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
           <p className="text-sm font-medium text-muted-foreground">Etapa 1 · Necesidad</p>
@@ -135,7 +168,7 @@ export default function OverhaulCrearPage() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-8">
+      <form onSubmit={handleSubmit} className="space-y-8" noValidate>
         <div className="space-y-5">
           <div>
             <h2 className="font-semibold">Información del proyecto</h2>
@@ -145,15 +178,30 @@ export default function OverhaulCrearPage() {
           </div>
 
           <div className="grid gap-5 md:grid-cols-2">
-            <Field label="Nombre del proyecto" htmlFor="proyecto">
-              <Input id="proyecto" name="proyecto" placeholder="Overhaul excavadora 2026" required />
+            <Field
+              label="Nombre del proyecto"
+              htmlFor="proyecto"
+              error={errorFor("proyecto")}
+            >
+              <Input
+                id="proyecto"
+                name="proyecto"
+                placeholder="Overhaul excavadora 2026"
+                value={values.proyecto}
+                onChange={(event) => setValue("proyecto", event.target.value)}
+                aria-invalid={Boolean(errorFor("proyecto"))}
+                required
+              />
             </Field>
-            <Field label="Cliente" htmlFor="cliente">
+            <Field label="Cliente" htmlFor="cliente" error={errorFor("cliente")}>
               <Input
                 id="cliente"
                 name="cliente"
                 placeholder="Nombre del cliente"
                 list="clientes-mineros"
+                value={values.cliente}
+                onChange={(event) => setValue("cliente", event.target.value)}
+                aria-invalid={Boolean(errorFor("cliente"))}
                 required
               />
               <datalist id="clientes-mineros">
@@ -162,15 +210,34 @@ export default function OverhaulCrearPage() {
                 ))}
               </datalist>
             </Field>
-            <Field label="Ubicación" htmlFor="ubicacion">
-              <Input id="ubicacion" name="ubicacion" placeholder="Ciudad o unidad operativa" required />
+            <Field
+              label="Ubicación"
+              htmlFor="ubicacion"
+              error={errorFor("ubicacion")}
+            >
+              <Input
+                id="ubicacion"
+                name="ubicacion"
+                placeholder="Ciudad o unidad operativa"
+                value={values.ubicacion}
+                onChange={(event) => setValue("ubicacion", event.target.value)}
+                aria-invalid={Boolean(errorFor("ubicacion"))}
+                required
+              />
             </Field>
-            <Field label="Taller de destino" htmlFor="tallerDestino">
+            <Field
+              label="Taller de destino"
+              htmlFor="tallerDestino"
+              error={errorFor("tallerDestino")}
+            >
               <Input
                 id="tallerDestino"
                 name="tallerDestino"
                 placeholder="Taller principal"
                 list="talleres-destino"
+                value={values.tallerDestino}
+                onChange={(event) => setValue("tallerDestino", event.target.value)}
+                aria-invalid={Boolean(errorFor("tallerDestino"))}
                 required
               />
               <datalist id="talleres-destino">
@@ -196,11 +263,35 @@ export default function OverhaulCrearPage() {
           </div>
 
           <div className="grid gap-5 md:grid-cols-2">
-            <Field label="Fecha estimada de reparación" htmlFor="fechaEstimada">
-              <Input id="fechaEstimada" name="fechaEstimada" type="date" required />
+            <Field
+              label="Fecha estimada de reparación"
+              htmlFor="fechaEstimada"
+              error={errorFor("fechaEstimada")}
+            >
+              <Input
+                id="fechaEstimada"
+                name="fechaEstimada"
+                type="date"
+                value={values.fechaEstimada}
+                onChange={(event) => setValue("fechaEstimada", event.target.value)}
+                aria-invalid={Boolean(errorFor("fechaEstimada"))}
+                required
+              />
             </Field>
-            <Field label="Fecha límite para tarifa" htmlFor="fechaTarifa">
-              <Input id="fechaTarifa" name="fechaTarifa" type="date" required />
+            <Field
+              label="Fecha límite para tarifa"
+              htmlFor="fechaTarifa"
+              error={errorFor("fechaTarifa")}
+            >
+              <Input
+                id="fechaTarifa"
+                name="fechaTarifa"
+                type="date"
+                value={values.fechaTarifa}
+                onChange={(event) => setValue("fechaTarifa", event.target.value)}
+                aria-invalid={Boolean(errorFor("fechaTarifa"))}
+                required
+              />
             </Field>
           </div>
         </div>
@@ -231,9 +322,9 @@ export default function OverhaulCrearPage() {
                 </tr>
               </thead>
               <tbody>
-                {machines.map((machine, index) => (
+                {values.maquinas.map((machine, index) => (
                   <tr key={index} className="border-b last:border-b-0">
-                    <td className="p-2 align-top">
+                    <td className="space-y-1 p-2 align-top">
                       <Input
                         id={`modelo-${index}`}
                         aria-label={`Modelo ${index + 1}`}
@@ -241,18 +332,22 @@ export default function OverhaulCrearPage() {
                         value={machine.model}
                         onChange={(event) => updateMachine(index, "model", event.target.value)}
                         placeholder="CAT 336"
+                        aria-invalid={Boolean(errorFor(`maquinas.${index}.model`))}
                         required
                       />
+                      <FormMessage message={errorFor(`maquinas.${index}.model`)} />
                     </td>
-                    <td className="p-2 align-top">
+                    <td className="space-y-1 p-2 align-top">
                       <Input
                         id={`serie-${index}`}
                         aria-label={`Serie ${index + 1}`}
                         value={machine.serial}
                         onChange={(event) => updateMachine(index, "serial", event.target.value)}
                         placeholder="ABC12345"
+                        aria-invalid={Boolean(errorFor(`maquinas.${index}.serial`))}
                         required
                       />
+                      <FormMessage message={errorFor(`maquinas.${index}.serial`)} />
                     </td>
                     <td className="p-2 align-top">
                       <Button
@@ -260,7 +355,7 @@ export default function OverhaulCrearPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => removeMachine(index)}
-                        disabled={machines.length === 1}
+                        disabled={values.maquinas.length === 1}
                         aria-label={`Eliminar máquina ${index + 1}`}
                         title="Eliminar máquina"
                       >
@@ -272,6 +367,8 @@ export default function OverhaulCrearPage() {
               </tbody>
             </table>
           </div>
+
+          <FormMessage message={errorFor("maquinas")} />
 
           <datalist id="modelos-maquina">
             {masterData.modelos.map((modelo) => (
@@ -292,7 +389,7 @@ export default function OverhaulCrearPage() {
           <Button type="button" variant="outline" onClick={() => router.back()}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
+          <Button type="submit" disabled={isSubmitting || !parsed.success}>
             {isSubmitting ? "Creando..." : "Crear overhaul"}
             {!isSubmitting ? <ArrowRight /> : null}
           </Button>
@@ -305,10 +402,12 @@ export default function OverhaulCrearPage() {
 function Field({
   label,
   htmlFor,
+  error,
   children,
 }: {
   label: string
   htmlFor: string
+  error?: string
   children: React.ReactNode
 }) {
   return (
@@ -317,6 +416,7 @@ function Field({
         {label}
       </label>
       {children}
+      <FormMessage message={error} />
     </div>
   )
 }

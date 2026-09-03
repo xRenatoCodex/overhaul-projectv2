@@ -2,6 +2,8 @@ import { UserRole, type PrismaClient } from "@prisma/client"
 
 import { atenciones } from "@workspace/backend/data/atenciones"
 import { clientesMineros } from "@workspace/backend/data/clientes-mineros"
+import { fabricantes } from "@workspace/backend/data/fabricantes"
+import { modelosMaquina } from "@workspace/backend/data/modelos-maquina"
 import { sistemas797F } from "@workspace/backend/data/sistemas-797f"
 import { talleres } from "@workspace/backend/data/talleres"
 
@@ -28,14 +30,35 @@ export async function seedMasterData(prisma: PrismaClient): Promise<void> {
         create: { name },
       }),
     ),
+    ...fabricantes.map((name) =>
+      prisma.masterFabricante.upsert({
+        where: { name },
+        update: {},
+        create: { name },
+      }),
+    ),
   ])
+
+  const fabricanteByName = new Map(
+    (await prisma.masterFabricante.findMany()).map((fabricante) => [fabricante.name, fabricante.id]),
+  )
+
+  await prisma.$transaction(
+    modelosMaquina.map(({ modelo, fabricante, type, flota, categoria }) =>
+      prisma.masterMaquinaModelo.upsert({
+        where: { modelo },
+        update: { type, flota, categoria, fabricanteId: fabricanteByName.get(fabricante) },
+        create: { modelo, type, flota, categoria, fabricanteId: fabricanteByName.get(fabricante) },
+      }),
+    ),
+  )
 
   const modelo = await prisma.masterMaquinaModelo.upsert({
     where: { modelo: "797F" },
-    update: { type: "Camión minero" },
+    update: { description: "Camión de acarreo minero Caterpillar 797F" },
     create: {
       modelo: "797F",
-      type: "Camión minero",
+      type: "Camión Minero",
       description: "Camión de acarreo minero Caterpillar 797F",
     },
   })
@@ -75,7 +98,7 @@ export async function seedMasterData(prisma: PrismaClient): Promise<void> {
 export async function seedApplicationData(prisma: PrismaClient): Promise<void> {
   await seedMasterData(prisma)
 
-  const email = "comercial@overhaul.local"
+  const email = "comercial@ferreyros.com.pe"
   await prisma.user.upsert({
     where: { email },
     update: {},

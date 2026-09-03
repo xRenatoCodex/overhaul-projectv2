@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { ensureBackendSeeded, firstValidationError, overhaulService } from "@workspace/backend"
 import { createNecesidadSchema } from "@workspace/backend/lib/validators/overhaul"
+import { getCurrentActor } from "@/lib/current-actor"
 
 export async function POST(request: Request) {
   await ensureBackendSeeded()
@@ -22,7 +23,10 @@ export async function POST(request: Request) {
     )
   }
 
-  const result = await overhaulService.createNecesidad(parsed.data)
+  const result = await overhaulService.createNecesidad(
+    parsed.data,
+    await getCurrentActor(),
+  )
   return NextResponse.json(result, { status: 201 })
 }
 

@@ -219,7 +219,7 @@ function VideoStory() {
       ref={sectionRef}
       className="relative h-[440dvh] bg-[#131209] text-white"
     >
-      <div className="sticky top-0 min-h-[100dvh] overflow-hidden">
+      <div className="sticky top-0 min-h-dvh overflow-hidden">
         <motion.video
           ref={videoRef}
           style={{ scale: videoScale }}

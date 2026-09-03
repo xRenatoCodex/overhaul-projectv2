@@ -24,6 +24,12 @@ import { Separator } from "@workspace/ui/components/separator"
 import { Textarea } from "@workspace/ui/components/textarea"
 import { DialogBody } from "next/dist/next-devtools/dev-overlay/components/dialog";
 
+import {
+    StageLockBanner,
+    StageLockFieldset,
+    useStageLock,
+} from "@/components/stage-lock"
+
 const MarkdownEditor = dynamic(
     () => import("../../alcance/components/initialized-markdown-editor"),
     {
@@ -57,6 +63,11 @@ export function PropuestaForm({
     const [garantias, setGarantias] = useState(initialPropuesta.garantias)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [error, setError] = useState("")
+
+    const lock = useStageLock(
+        initialPropuesta.isCompleted,
+        initialPropuesta.version,
+    )
 
     function updateSystem(
         index: number,
@@ -133,6 +144,7 @@ export function PropuestaForm({
             if (!response.ok) {
                 throw new Error(result.message ?? "No se pudo guardar la propuesta.")
             }
+            lock.lockAgain()
             router.refresh()
         } catch (submitError) {
             setError(
@@ -147,6 +159,15 @@ export function PropuestaForm({
 
     return (
         <form onSubmit={handleSubmit} className=" space-y-8">
+            <StageLockBanner
+                isLocked={lock.isLocked}
+                isEditing={lock.isEditing}
+                version={initialPropuesta.version}
+                nextVersion={lock.nextVersion}
+                onStartNewVersion={lock.startNewVersion}
+            />
+
+            <StageLockFieldset isLocked={lock.isLocked} className="space-y-8">
             <div className="grid gap-5 md:grid-cols-2">
                 <Field label="Fecha de emisión" htmlFor="emision">
                     <Input id="emision" name="emision" type="date" defaultValue={toDateInput(initialPropuesta.emision)} required />
@@ -236,6 +257,7 @@ export function PropuestaForm({
 
             <Separator />
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><Button type="button" variant="outline" onClick={() => router.back()}>Cancelar</Button><Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Guardando..." : "Guardar propuesta"}</Button></div>
+            </StageLockFieldset>
         </form>
     )
 }

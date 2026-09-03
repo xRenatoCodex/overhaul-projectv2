@@ -30,7 +30,7 @@ export default function RootLayout({
         inter.variable,
       )}
     >
-      <body className="h-full overflow-hidden">
+      <body className="h-full overflow-auto">
         <ThemeProvider>
           <TooltipProvider>{children}</TooltipProvider>
           <Toaster />

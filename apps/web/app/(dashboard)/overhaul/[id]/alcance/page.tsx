@@ -63,6 +63,8 @@ export default async function OverhaulAlcancePage({
         initialSystems={masterSystems}
         talleres={masterOptions.talleres}
         atenciones={masterOptions.atenciones}
+        version={alcance.version}
+        isCompleted={alcance.isCompleted}
       />
     </section>
   )

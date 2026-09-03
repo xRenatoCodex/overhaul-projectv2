@@ -1,0 +1,438 @@
+//// ------------------------------------------------------
+//// THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+//// ------------------------------------------------------
+
+Table User {
+  id String [pk]
+  name String [not null]
+  email String [unique, not null]
+  passwordHash String [not null]
+  role UserRole [not null]
+  necesidades OverhaulNecesidad [not null]
+  alcances OverhaulAlcance [not null]
+  tarifas OverhaulTarifas [not null]
+  propuestas OverhaulPropuesta [not null]
+  planificaciones OverhaulPlanificacion [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table Overhaul {
+  id String [pk]
+  state OverhaulState [not null, default: 'definicion']
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  necesidad OverhaulNecesidad [not null]
+  alcance OverhaulAlcance [not null]
+  tarifas OverhaulTarifas [not null]
+  propuesta OverhaulPropuesta [not null]
+  planificacion OverhaulPlanificacion [not null]
+}
+
+Table OverhaulNecesidad {
+  id String [pk]
+  overhaulId String [not null]
+  overhaul Overhaul [not null]
+  proyecto String [not null]
+  clienteId String [not null]
+  cliente MasterCliente [not null]
+  ubicacion String [not null]
+  tallerDestinoId String [not null]
+  tallerDestino MasterTaller [not null]
+  fechaEstimada DateTime [not null]
+  fechaTarifa DateTime [not null]
+  maquinas OverhaulNecesidadMaquina [not null]
+  version Int [not null, default: 1]
+  isCompleted Boolean [not null, default: false]
+  completedAt DateTime
+  createdById String
+  createdBy User
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table OverhaulNecesidadMaquina {
+  id String [pk]
+  necesidadId String [not null]
+  necesidad OverhaulNecesidad [not null]
+  maquinaId String [not null]
+  maquina Maquina [not null]
+  createdAt DateTime [default: `now()`, not null]
+
+  indexes {
+    (necesidadId, maquinaId) [unique]
+  }
+}
+
+Table OverhaulAlcance {
+  id String [pk]
+  overhaulId String [not null]
+  overhaul Overhaul [not null]
+  resumen String [not null, default: '']
+  systems OverhaulAlcanceSystem [not null]
+  version Int [not null, default: 1]
+  isCompleted Boolean [not null, default: false]
+  completedAt DateTime
+  createdById String
+  createdBy User
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table OverhaulAlcanceSystem {
+  id String [pk]
+  alcanceId String [not null]
+  alcance OverhaulAlcance [not null]
+  name String [not null]
+  position Int [not null]
+  components OverhaulAlcanceComponent [not null]
+  createdAt DateTime [default: `now()`, not null]
+
+  indexes {
+    (alcanceId, position) [unique]
+  }
+}
+
+Table OverhaulAlcanceComponent {
+  id String [pk]
+  systemId String [not null]
+  system OverhaulAlcanceSystem [not null]
+  name String [not null]
+  state ComponentState [not null]
+  tallerId String
+  taller MasterTaller
+  atencionId String
+  atencion MasterAtencion
+  comentarios String
+  position Int [not null]
+  createdAt DateTime [default: `now()`, not null]
+
+  indexes {
+    (systemId, position) [unique]
+  }
+}
+
+Table OverhaulTarifas {
+  id String [pk]
+  overhaulId String [not null]
+  overhaul Overhaul [not null]
+  currency Currency [not null, default: 'USD']
+  total Decimal [not null, default: 0]
+  groups OverhaulTarifaGroupJob [not null]
+  partes OverhaulTarifaParte [not null]
+  version Int [not null, default: 1]
+  isCompleted Boolean [not null, default: false]
+  completedAt DateTime
+  createdById String
+  createdBy User
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table OverhaulTarifaGroupJob {
+  id String [pk]
+  tarifaId String [not null]
+  tarifa OverhaulTarifas [not null]
+  name String [not null]
+  horas Decimal [not null, default: 0]
+  position Int [not null]
+  jobs OverhaulTarifaJob [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+
+  indexes {
+    (tarifaId, position) [unique]
+  }
+}
+
+Table OverhaulTarifaJob {
+  id String [pk]
+  groupJobId String [not null]
+  groupJob OverhaulTarifaGroupJob [not null]
+  name String [not null]
+  materialAndMo Decimal [not null, default: 0]
+  miscelaneos Decimal [not null, default: 0]
+  repuestos Decimal [not null, default: 0]
+  position Int [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+
+  indexes {
+    (groupJobId, position) [unique]
+  }
+}
+
+Table OverhaulTarifaParte {
+  id String [pk]
+  tarifaId String [not null]
+  tarifa OverhaulTarifas [not null]
+  segmentacion String [not null]
+  componentCode String [not null]
+  jobCode String [not null]
+  parentPartName String [not null]
+  groupNumber String [not null]
+  partNumber String [not null]
+  partNumberSap String [not null]
+  partName String [not null]
+  quantity Decimal [not null, default: 0]
+  replacementPercent Decimal [not null, default: 0]
+  dealerNet Decimal [not null, default: 0]
+  costoInterno Decimal [not null, default: 0]
+  pu Decimal [not null, default: 0]
+  subtotal Decimal [not null, default: 0]
+  clasificacion String [not null]
+  notas String
+  motivo String
+  position Int [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+
+  indexes {
+    (tarifaId, position) [unique]
+  }
+}
+
+Table OverhaulPropuesta {
+  id String [pk]
+  overhaulId String [not null]
+  overhaul Overhaul [not null]
+  emision DateTime
+  contactoNombre String [not null, default: '']
+  contactoUbicacion String [not null, default: '']
+  contactoTelefono String
+  contactoEmail String
+  condiciones String[] [not null]
+  inclusionesExclusiones OverhaulPropuestaInclusionExclusion [not null]
+  fechaReparacion DateTime
+  terminosGenerales String [not null, default: '']
+  garantias String [not null, default: '']
+  propuestaUri String [not null, default: '']
+  version Int [not null, default: 1]
+  isCompleted Boolean [not null, default: false]
+  completedAt DateTime
+  createdById String
+  createdBy User
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table OverhaulPropuestaInclusionExclusion {
+  id String [pk]
+  propuestaId String [not null]
+  propuesta OverhaulPropuesta [not null]
+  systemName String [not null]
+  components String[] [not null]
+  inclusiones String[] [not null]
+  exclusiones String[] [not null]
+  position Int [not null]
+  createdAt DateTime [default: `now()`, not null]
+
+  indexes {
+    (propuestaId, position) [unique]
+  }
+}
+
+Table OverhaulPlanificacion {
+  id String [pk]
+  overhaulId String [not null]
+  overhaul Overhaul [not null]
+  fechaInicio DateTime
+  fechaFin DateTime
+  version Int [not null, default: 1]
+  isCompleted Boolean [not null, default: false]
+  completedAt DateTime
+  createdById String
+  createdBy User
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table MasterCliente {
+  id String [pk]
+  name String [unique, not null]
+  contact String
+  email String
+  maquinas Maquina [not null]
+  necesidades OverhaulNecesidad [not null]
+  createdAt DateTime [default: `now()`, not null]
+}
+
+Table MasterTaller {
+  id String [pk]
+  name String [unique, not null]
+  location String
+  capacity Int
+  necesidades OverhaulNecesidad [not null]
+  componentes OverhaulAlcanceComponent [not null]
+  createdAt DateTime [default: `now()`, not null]
+}
+
+Table MasterAtencion {
+  id String [pk]
+  name String [unique, not null]
+  description String
+  componentes OverhaulAlcanceComponent [not null]
+  createdAt DateTime [default: `now()`, not null]
+}
+
+Table MasterFabricante {
+  id String [pk]
+  name String [unique, not null]
+  modelos MasterMaquinaModelo [not null]
+  createdAt DateTime [default: `now()`, not null]
+}
+
+Table MasterMaquinaModelo {
+  id String [pk]
+  modelo String [unique, not null]
+  type String [not null]
+  description String
+  fabricanteId String
+  fabricante MasterFabricante
+  categoria CategoriaFlota
+  flota FlotaTipo
+  systems MasterSystem [not null]
+  maquinas Maquina [not null]
+  createdAt DateTime [default: `now()`, not null]
+}
+
+Table Maquina {
+  id String [pk]
+  modeloId String [not null]
+  modelo MasterMaquinaModelo [not null]
+  clienteId String [not null]
+  cliente MasterCliente [not null]
+  serie String [not null]
+  idEquipo String [unique]
+  estado String [not null, default: 'Activo']
+  fechaInicio DateTime
+  fechaFin DateTime
+  necesidades OverhaulNecesidadMaquina [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+
+  indexes {
+    (modeloId, serie) [unique]
+  }
+}
+
+Table MasterSystem {
+  id String [pk]
+  name String [not null]
+  modeloId String [not null]
+  modelo MasterMaquinaModelo [not null]
+  description String
+  components MasterComponent [not null]
+  createdAt DateTime [default: `now()`, not null]
+
+  indexes {
+    (modeloId, name) [unique]
+  }
+}
+
+Table MasterComponent {
+  id String [pk]
+  name String [not null]
+  systemId String [not null]
+  system MasterSystem [not null]
+  code String
+  createdAt DateTime [default: `now()`, not null]
+
+  indexes {
+    (systemId, name) [unique]
+  }
+}
+
+Enum UserRole {
+  admin
+  commercial
+  pricing
+  planning
+}
+
+Enum OverhaulState {
+  definicion
+  aprobado
+  cancelado
+}
+
+Enum Currency {
+  USD
+  PEN
+}
+
+Enum CategoriaFlota {
+  EXPANDIDA
+  TRADICIONAL
+}
+
+Enum FlotaTipo {
+  DRILLS
+  SHOVEL
+  AUX_FLEET
+  SUPPORT
+  TRUCKS
+}
+
+Enum ComponentState {
+  Nuevo
+  Reman
+  RGeneral
+  Resellado
+  Reutilizar
+  Cliente
+}
+
+Ref: OverhaulNecesidad.overhaulId > Overhaul.id [delete: Cascade]
+
+Ref: OverhaulNecesidad.clienteId > MasterCliente.id
+
+Ref: OverhaulNecesidad.tallerDestinoId > MasterTaller.id
+
+Ref: OverhaulNecesidad.createdById > User.id [delete: Set Null]
+
+Ref: OverhaulNecesidadMaquina.necesidadId > OverhaulNecesidad.id [delete: Cascade]
+
+Ref: OverhaulNecesidadMaquina.maquinaId > Maquina.id
+
+Ref: OverhaulAlcance.overhaulId > Overhaul.id [delete: Cascade]
+
+Ref: OverhaulAlcance.createdById > User.id [delete: Set Null]
+
+Ref: OverhaulAlcanceSystem.alcanceId > OverhaulAlcance.id [delete: Cascade]
+
+Ref: OverhaulAlcanceComponent.systemId > OverhaulAlcanceSystem.id [delete: Cascade]
+
+Ref: OverhaulAlcanceComponent.tallerId > MasterTaller.id
+
+Ref: OverhaulAlcanceComponent.atencionId > MasterAtencion.id
+
+Ref: OverhaulTarifas.overhaulId > Overhaul.id [delete: Cascade]
+
+Ref: OverhaulTarifas.createdById > User.id [delete: Set Null]
+
+Ref: OverhaulTarifaGroupJob.tarifaId > OverhaulTarifas.id [delete: Cascade]
+
+Ref: OverhaulTarifaJob.groupJobId > OverhaulTarifaGroupJob.id [delete: Cascade]
+
+Ref: OverhaulTarifaParte.tarifaId > OverhaulTarifas.id [delete: Cascade]
+
+Ref: OverhaulPropuesta.overhaulId > Overhaul.id [delete: Cascade]
+
+Ref: OverhaulPropuesta.createdById > User.id [delete: Set Null]
+
+Ref: OverhaulPropuestaInclusionExclusion.propuestaId > OverhaulPropuesta.id [delete: Cascade]
+
+Ref: OverhaulPlanificacion.overhaulId > Overhaul.id [delete: Cascade]
+
+Ref: OverhaulPlanificacion.createdById > User.id [delete: Set Null]
+
+Ref: MasterMaquinaModelo.fabricanteId > MasterFabricante.id
+
+Ref: Maquina.modeloId > MasterMaquinaModelo.id
+
+Ref: Maquina.clienteId > MasterCliente.id
+
+Ref: MasterSystem.modeloId > MasterMaquinaModelo.id [delete: Cascade]
+
+Ref: MasterComponent.systemId > MasterSystem.id [delete: Cascade]
