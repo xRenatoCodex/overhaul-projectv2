@@ -15,6 +15,13 @@ export async function PATCH(
 ) {
   await ensureBackendSeeded()
   const { id } = await context.params
+  const actor = await getCurrentActor()
+  if (!actor) {
+    return NextResponse.json(
+      { success: false, error: "Debe estar logueado para actualizar este recurso" },
+      { status: 401 },
+    )
+  }
   const body = await readJson(request)
 
   if (!body.success) {
@@ -40,7 +47,7 @@ export async function PATCH(
     const result = await overhaulService.updateTarifas(
       id,
       parsed.data,
-      await getCurrentActor(),
+      actor,
     )
     return NextResponse.json({ success: true, data: result })
   } catch (error) {

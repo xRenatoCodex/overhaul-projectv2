@@ -17,6 +17,13 @@ export async function PATCH(
 ) {
   await ensureBackendSeeded()
   const { id } = await context.params
+  const actor = await getCurrentActor()
+  if (!actor) {
+    return NextResponse.json(
+      { message: "Debe estar logueado para actualizar este recurso" },
+      { status: 401 },
+    )
+  }
   const body = await readJson(request)
 
   if (!body.success) {
@@ -46,7 +53,7 @@ export async function PATCH(
     const result = await overhaulService.updateAlcance(
       id,
       parsed.data,
-      await getCurrentActor(),
+      actor,
     )
     return NextResponse.json(result)
   } catch (error) {

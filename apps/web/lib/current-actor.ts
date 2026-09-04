@@ -1,7 +1,14 @@
+import type { AuthUser } from "@workspace/backend/types/auth"
 import { auth } from "@/auth"
 
-/** Id of the User attributed as author of a stage version (FK target). */
-export async function getCurrentActor(): Promise<string | null> {
+export async function getCurrentActor(): Promise<AuthUser | null> {
   const session = await auth()
-  return session?.user?.id ?? null
+  if (!session?.user?.id) return null
+  
+  return {
+    id: session.user.id,
+    email: session.user.email ?? "",
+    name: session.user.name ?? "",
+    role: session.user.role,
+  }
 }

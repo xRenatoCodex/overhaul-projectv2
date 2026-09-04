@@ -5,6 +5,7 @@ import {
   NotFoundError,
   overhaulService,
 } from "@workspace/backend"
+import { getCurrentActor } from "@/lib/current-actor"
 
 export async function GET(
   _request: Request,
@@ -12,6 +13,13 @@ export async function GET(
 ) {
   await ensureBackendSeeded()
   const { id } = await context.params
+  const actor = await getCurrentActor()
+  if (!actor) {
+    return NextResponse.json(
+      { message: "Debe estar logueado para acceder a este recurso" },
+      { status: 401 },
+    )
+  }
 
   try {
     return NextResponse.json(await overhaulService.getHistory(id))

@@ -2,6 +2,7 @@ import { Currency, Prisma, type PrismaClient } from "@prisma/client"
 
 import { OverhaulEntity } from "@workspace/backend/entities/overhaul"
 import type { IOverhaulRepository } from "@workspace/backend/interfaces/repositories"
+import type { AuthUser } from "@workspace/backend/types/auth"
 import type {
   AlcanceSystem,
   CreateNecesidadInput,
@@ -84,17 +85,26 @@ export class PrismaOverhaulRepository implements IOverhaulRepository {
 
   public async createFromNecesidad(
     input: CreateNecesidadInput,
-    actor: string | null = null,
+    actor: AuthUser | null = null,
   ): Promise<OverhaulEntity> {
     const clienteId = await this.resolveClienteId(input.cliente)
     const tallerDestinoId = await this.resolveTallerId(input.tallerDestino)
     const maquinasCreate = await this.buildMaquinasCreate(input.maquinas, clienteId)
 
-    // Validate that actor user exists in database
-    let validActor: string | null = null
+    let validActorId: string | null = null
     if (actor) {
-      const userExists = await this.prisma.user.findUnique({ where: { id: actor } })
-      validActor = userExists ? actor : null
+      const user = await this.prisma.user.upsert({
+        where: { email: actor.email },
+        update: {},
+        create: {
+          id: actor.id,
+          email: actor.email,
+          name: actor.name,
+          passwordHash: "session-user",
+          role: "commercial",
+        },
+      })
+      validActorId = user.id
     }
 
     const necesidadData: any = {
@@ -107,19 +117,19 @@ export class PrismaOverhaulRepository implements IOverhaulRepository {
       maquinas: { create: maquinasCreate },
       isCompleted: true,
     }
-    if (validActor) necesidadData.createdById = validActor
+    if (validActorId) necesidadData.createdById = validActorId
 
     const overhaul = await this.prisma.overhaul.create({
       data: {
         necesidad: { create: necesidadData },
-        alcance: { create: validActor ? { resumen: "", createdById: validActor } : { resumen: "" } },
+        alcance: { create: validActorId ? { resumen: "", createdById: validActorId } : { resumen: "" } },
         tarifas: {
-          create: validActor
-            ? { currency: Currency.USD, total: 0, createdById: validActor }
+          create: validActorId
+            ? { currency: Currency.USD, total: 0, createdById: validActorId }
             : { currency: Currency.USD, total: 0 },
         },
-        propuesta: { create: validActor ? { createdById: validActor } : {} },
-        planificacion: { create: validActor ? { createdById: validActor } : {} },
+        propuesta: { create: validActorId ? { createdById: validActorId } : {} },
+        planificacion: { create: validActorId ? { createdById: validActorId } : {} },
       },
       include: overhaulWithStages,
     })

@@ -7,6 +7,7 @@ import {
   overhaulService,
 } from "@workspace/backend"
 import { createNecesidadSchema } from "@workspace/backend/lib/validators/overhaul"
+import { getCurrentActor } from "@/lib/current-actor"
 
 export async function PATCH(
   request: Request,
@@ -14,6 +15,13 @@ export async function PATCH(
 ) {
   await ensureBackendSeeded()
   const { id } = await context.params
+  const actor = await getCurrentActor()
+  if (!actor) {
+    return NextResponse.json(
+      { message: "Debe estar logueado para actualizar este recurso" },
+      { status: 401 },
+    )
+  }
   const body = await readJson(request)
 
   if (!body.success) {
@@ -32,7 +40,7 @@ export async function PATCH(
   }
 
   try {
-    const result = await overhaulService.updateNecesidad(id, parsed.data)
+    const result = await overhaulService.updateNecesidad(id, parsed.data, actor)
     return NextResponse.json(result)
   } catch (error) {
     if (error instanceof NotFoundError) {

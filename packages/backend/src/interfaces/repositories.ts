@@ -6,6 +6,7 @@ import type {
   MonitorItem,
   OverhaulHistory,
 } from "@workspace/backend/types/overhaul"
+import type { AuthUser } from "@workspace/backend/types/auth"
 
 export interface IUserRepository {
   findByEmail(email: string): Promise<UserEntity | undefined>
@@ -14,7 +15,7 @@ export interface IUserRepository {
 export interface IOverhaulRepository {
   createFromNecesidad(
     input: CreateNecesidadInput,
-    actor?: string | null,
+    actor?: AuthUser | null,
   ): Promise<OverhaulEntity>
   findById(id: string): Promise<OverhaulEntity | undefined>
   save(overhaul: OverhaulEntity): Promise<void>

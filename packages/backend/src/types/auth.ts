@@ -1,5 +1,12 @@
 export type UserRole = "admin" | "commercial" | "pricing" | "planning"
 
+export type AuthUser = {
+  id: string
+  email: string
+  name: string
+  role?: UserRole
+}
+
 export type LoginRequest = {
   email: string
   password: string
@@ -7,12 +14,7 @@ export type LoginRequest = {
 
 export type LoginResponse = {
   token: string
-  user: {
-    id: string
-    name: string
-    email: string
-    role: UserRole
-  }
+  user: AuthUser
 }
 
 export type LoginErrorResponse = {

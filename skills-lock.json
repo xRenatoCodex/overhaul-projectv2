@@ -13,6 +13,12 @@
       "skillPath": "skills/landing-page-design/SKILL.md",
       "computedHash": "45a4ccd7cd4a374d973207a8ae9afc26cbbfc699f59c93f6700f3b944d276bec"
     },
+    "react-flow": {
+      "source": "existential-birds/beagle",
+      "sourceType": "github",
+      "skillPath": "plugins/beagle-react/skills/react-flow/SKILL.md",
+      "computedHash": "4b33b6315a4526f1f1e7202904597fcd36d0a4cafcf43ae84e527eae051c0ac4"
+    },
     "shadcn": {
       "source": "shadcn-ui/ui",
       "sourceType": "github",

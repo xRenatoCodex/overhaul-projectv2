@@ -103,7 +103,66 @@ packages/ui/                      # Component library
 
 ## Data Models
 
-All entities listed below map to Prisma models. This mirrors the actual `prisma/schema.prisma` — keep both in sync when either changes.
+All entities listed below map to Prisma models in `prisma/schema.prisma`. Keep this documentation in sync with the schema.
+
+### Entity Quick Reference
+
+| Category | Entity | Purpose | Relation |
+|----------|--------|---------|----------|
+| **Master** | MasterCliente | Mine site/customer | 1:N to Maquina, OverhaulNecesidad |
+| **Master** | MasterTaller | Workshop/service center | 1:N to OverhaulNecesidad, OverhaulAlcanceComponent |
+| **Master** | MasterAtencion | Service type (presupuesto, tarifa fija) | 1:N to OverhaulAlcanceComponent |
+| **Master** | MasterFabricante | Machine manufacturer | 1:N to MasterMaquinaModelo |
+| **Master** | MasterMaquinaModelo | Machine model/SKU | 1:N to Maquina; 1:N to MasterSystem |
+| **Master** | MasterSystem | System category (hydraulic, power) | 1:N to MasterComponent; FK to MasterMaquinaModelo |
+| **Master** | MasterComponent | Component (pump, seal) | FK to MasterSystem |
+| **Asset** | Maquina | Physical machine instance | FK to MasterMaquinaModelo, MasterCliente; 1:N to OverhaulNecesidadMaquina |
+| **Auth** | User | System user | 1:N to all stage entities (createdBy) |
+| **Overhaul** | Overhaul | Root entity | 1:N to all stage entities (immutable history) |
+| **Stage 1** | OverhaulNecesidad | Requirement snapshot | 1:N join to Maquina via OverhaulNecesidadMaquina |
+| **Stage 2** | OverhaulAlcance | Scope snapshot | 1:N to OverhaulAlcanceSystem |
+| **Stage 2** | OverhaulAlcanceSystem | System within scope | 1:N to OverhaulAlcanceComponent |
+| **Stage 2** | OverhaulAlcanceComponent | Component within system | FK to MasterTaller, MasterAtencion |
+| **Stage 3** | OverhaulTarifas | Pricing snapshot | 1:N to OverhaulTarifaGroupJob, OverhaulTarifaParte |
+| **Stage 4** | OverhaulPropuesta | Proposal snapshot | 1:N to OverhaulPropuestaInclusionExclusion |
+| **Stage 5** | OverhaulPlanificacion | Schedule snapshot | (final stage; no children) |
+
+### Database Schema Overview
+
+**Design Principles**:
+- **Master tables** (`Master*`): Reference data (catalogs), upserted by name for free-text form resolution
+- **Asset tables** (`Maquina`): Persistent machine registry independent of any overhaul
+- **Stage tables** (1-5): Versioned snapshots (append-only, never updated); each stage version is a new row
+- **Versioning**: Read latest row per stage via `[version desc, updatedAt desc], take: 1`
+- **Cascade**: When stage N increments version, downstream stages N+1..5 get new rows with `isCompleted: false`
+- **Audit**: Every stage tracks `createdById` (FK to User) for author attribution
+
+**Key Relationships**:
+```
+Overhaul
+  ├─ 1:N OverhaulNecesidad (version history)
+  │    └─ N:N OverhaulNecesidadMaquina → Maquina
+  ├─ 1:N OverhaulAlcance (version history)
+  │    └─ 1:N OverhaulAlcanceSystem
+  │         └─ 1:N OverhaulAlcanceComponent → MasterTaller, MasterAtencion
+  ├─ 1:N OverhaulTarifas (version history)
+  │    ├─ 1:N OverhaulTarifaGroupJob
+  │    │    └─ 1:N OverhaulTarifaJob
+  │    └─ 1:N OverhaulTarifaParte
+  ├─ 1:N OverhaulPropuesta (version history)
+  │    └─ 1:N OverhaulPropuestaInclusionExclusion
+  └─ 1:N OverhaulPlanificacion (version history)
+
+MasterCliente
+  ├─ 1:N Maquina → MasterMaquinaModelo
+  └─ 1:N OverhaulNecesidad
+
+MasterMaquinaModelo
+  ├─ FK MasterFabricante
+  ├─ 1:N MasterSystem
+  │    └─ 1:N MasterComponent
+  └─ 1:N Maquina
+```
 
 ### Master Data Entities
 
@@ -746,33 +805,103 @@ next-app/
 └── package.json
 ```
 
-### Routing Convention
+### API Routes & Request/Response Pattern
 
-API endpoints follow the stage progression:
+**Endpoint Structure** (follows stage progression):
 
-```
-POST   /api/overhauls                      # Create new overhaul
-GET    /api/overhauls                      # List all
-GET    /api/overhauls/:id                  # Get overhaul + stages
+| Method | Endpoint | Purpose | Auth |
+|--------|----------|---------|------|
+| `POST` | `/api/overhauls` | Create new overhaul | Any authenticated user |
+| `GET` | `/api/overhauls` | List all overhauls | Any authenticated user |
+| `GET` | `/api/overhauls/:id` | Get single overhaul + all stages | Any authenticated user |
+| `PATCH` | `/api/overhauls/:id/necesidad` | Update Necesidad (stage 1) | commercial/admin |
+| `PATCH` | `/api/overhauls/:id/alcance` | Update Alcance (stage 2) | commercial/admin |
+| `PATCH` | `/api/overhauls/:id/tarifas` | Update Tarifas (stage 3) | pricing/admin |
+| `PATCH` | `/api/overhauls/:id/propuesta` | Update Propuesta (stage 4) | commercial/admin |
+| `PATCH` | `/api/overhauls/:id/planificacion` | Update Planificación (stage 5) | planning/admin |
+| `GET` | `/api/overhauls/:id/historial` | Get version history + audit trail | Any authenticated user |
+| `POST` | `/api/master-data` | Get/cache master data options | Any authenticated user |
 
-PATCH  /api/overhauls/:id/necesidad        # Update stage 1
-PATCH  /api/overhauls/:id/alcance          # Update stage 2
-PATCH  /api/overhauls/:id/tarifa           # Update stage 3
-PATCH  /api/overhauls/:id/propuesta        # Update stage 4 (state changes here)
-PATCH  /api/overhauls/:id/planificacion    # Update stage 5
+**Request/Response Flow**:
 
-DELETE /api/overhauls/:id                  # Soft-delete or cancel
-```
+1. **Client sends mutation** (`PATCH /api/overhauls/:id/alcance`):
+   ```typescript
+   const response = await fetch(`/api/overhauls/${id}/alcance`, {
+     method: 'PATCH',
+     headers: { 'Content-Type': 'application/json' },
+     body: JSON.stringify({
+       resumen: "System overhaul",
+       systems: [{ name: "Hydraulic", components: [...] }]
+     })
+   })
+   ```
+
+2. **API Route** (`apps/web/app/api/overhaul/[id]/alcance/route.ts`):
+   - Get actor via `getCurrentActor()`
+   - Check authentication (401 if missing)
+   - Validate request body with Zod schema
+   - Call backend service with `(id, input, actor)`
+   - Catch domain errors and return appropriate HTTP status
+
+   ```typescript
+   export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+     const actor = await getCurrentActor()
+     if (!actor) return NextResponse.json({ message: "Unauthorized" }, { status: 401 })
+     
+     const body = await readJson(request)
+     if (!body.success) return NextResponse.json({ message: "Invalid JSON" }, { status: 400 })
+     
+     const parsed = schema.safeParse(body.data)
+     if (!parsed.success) return NextResponse.json({ details: formatErrors(parsed.error) }, { status: 400 })
+     
+     try {
+       const result = await overhaulService.updateAlcance(id, parsed.data, actor)
+       return NextResponse.json(result)
+     } catch (error) {
+       if (error instanceof NotFoundError) return NextResponse.json({ message: error.message }, { status: 404 })
+       throw error
+     }
+   }
+   ```
+
+3. **Backend Service** (`packages/backend/src/services/overhaul-service.ts`):
+   - Fetch overhaul entity via repository
+   - Apply business logic (validate cascade, set createdById)
+   - Persist via repository (`save()` creates new versioned rows)
+   - Return result
+
+4. **Response** (success):
+   ```json
+   {
+     "id": "cuid-123"
+   }
+   ```
+   
+   (error):
+   ```json
+   {
+     "message": "Validation failed",
+     "details": ["resumen is required", "systems must not be empty"]
+   }
+   ```
+
+**Error Handling**:
+- `400`: Validation error (malformed input)
+- `401`: Not authenticated
+- `403`: Forbidden (insufficient role)
+- `404`: Resource not found
+- `500`: Internal server error (log and return generic message)
 
 ---
 
 ## Authentication & User Management
 
-### User Model
+### Session & User Types
 
-Users stored in PostgreSQL; next-auth uses the `Credentials` provider (JWT-based sessions, no DB `Session` table).
+Authentication uses **next-auth** with JWT strategy (stateless, no database session table).
 
-```
+**User Model** (Prisma):
+```typescript
 User {
   id: String @id @default(cuid())
   name: String
@@ -792,26 +921,94 @@ User {
 }
 ```
 
-`getCurrentActor()` (`apps/web/lib/current-actor.ts`) returns the signed-in `session.user.id`, which flows through `OverhaulEntity.actor` into every stage snapshot's `createdById`.
+**AuthUser Type** (shared between frontend & backend):
+```typescript
+// packages/backend/src/types/auth.ts
+export type AuthUser = {
+  id: string
+  email: string
+  name: string
+  role?: UserRole
+}
+
+export type UserRole = "admin" | "commercial" | "pricing" | "planning"
+```
+
+**Session Extension** (next-auth module augmentation):
+```typescript
+// apps/web/types/next-auth.d.ts
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string
+      role: UserRole
+    } & DefaultSession["user"]
+  }
+  interface User {
+    role: UserRole
+  }
+}
+```
+
+### getCurrentActor()
+
+Function: `apps/web/lib/current-actor.ts`
+
+Retrieves the authenticated user as an `AuthUser` object from the session. This actor is passed to all backend service methods and recorded in `createdById` for audit trails.
+
+```typescript
+export async function getCurrentActor(): Promise<AuthUser | null> {
+  const session = await auth()
+  if (!session?.user?.id) return null
+  
+  return {
+    id: session.user.id,
+    email: session.user.email ?? "",
+    name: session.user.name ?? "",
+    role: session.user.role,
+  }
+}
+```
+
+**Usage in API routes**:
+```typescript
+export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+  const actor = await getCurrentActor()
+  if (!actor) {
+    return NextResponse.json(
+      { message: "Unauthorized" },
+      { status: 401 },
+    )
+  }
+  
+  // actor now passed to service method
+  await overhaulService.updateAlcance(id, data, actor)
+}
+```
 
 ### Role-Based Access Control
 
-- **admin**: Full access (user management, all overhauls)
-- **commercial**: Create/edit Necesidad, Alcance; manage Propuesta
-- **pricing**: Manage Tarifa
-- **planning**: Manage Planificación
+Roles define stage access and action permissions:
+
+| Role | Permissions |
+|------|-------------|
+| **admin** | Full access; user management, all stages |
+| **commercial** | Create/edit Necesidad, Alcance; manage Propuesta (state transitions) |
+| **pricing** | Manage Tarifa, upload/edit pricing |
+| **planning** | Manage Planificación, schedule execution |
 
 Implement RBAC in middleware or API route guards:
 
 ```typescript
-// Middleware example
-export function withRole(allowedRoles: string[]) {
-  return async (request: NextRequest) => {
-    const session = await getServerSession(authOptions);
-    if (!session || !allowedRoles.includes(session.user.role)) {
-      return new NextResponse('Unauthorized', { status: 403 });
-    }
-  };
+// Middleware example (apps/web/middleware.ts)
+export async function middleware(request: NextRequest) {
+  const session = await auth()
+  const pathname = request.nextUrl.pathname
+  
+  // Route protection by role
+  if (pathname.startsWith('/tarifas') && session?.user?.role !== 'pricing' && session?.user?.role !== 'admin') {
+    return new NextResponse('Forbidden', { status: 403 })
+  }
 }
 ```
 
@@ -893,6 +1090,41 @@ NEXTAUTH_URL=http://localhost:3000
 - **Hooks** (`apps/web/hooks/`): Client-side state, data fetching (React Query optional)
 - **Components** (`packages/ui/src/components/`): UI primitives (shadcn), reusable
 - **Utils** (`packages/backend/utils/`, `packages/ui/src/lib/`): Pure functions, helpers
+
+### Service Pattern with Actor
+
+Every update service method follows this pattern:
+
+```typescript
+// packages/backend/src/services/overhaul-service.ts
+public async updateNecesidad(
+  id: string,
+  input: CreateNecesidadInput,
+  actor: AuthUser | null = null,
+): Promise<{ id: string }> {
+  // 1. Fetch entity
+  const overhaul = await this.getOverhaul(id)
+  const now = new Date().toISOString()
+
+  // 2. Set actor for audit trail
+  overhaul.actor = actor?.id ?? null
+  
+  // 3. Apply business logic (triggers cascade)
+  overhaul.updateNecesidad(input, now)
+  overhaul.markStageCompleted("necesidad", now)
+  
+  // 4. Persist all stages (new versioned rows)
+  await this.overhaulRepository.save(overhaul)
+  
+  return { id: overhaul.id }
+}
+```
+
+**Key points**:
+- `actor` is `AuthUser | null` (comes from `getCurrentActor()`)
+- Actor ID flows into `createdById` on the new stage row
+- All 5 stages are persisted in one atomic call
+- Downstream stages get `isCompleted: false` reset automatically via cascade
 
 ### Naming Conventions
 

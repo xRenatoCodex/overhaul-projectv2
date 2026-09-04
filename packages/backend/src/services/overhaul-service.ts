@@ -10,6 +10,7 @@ import type {
   UpdateTarifaRepuestosInput,
   UpdateTarifasInput,
 } from "@workspace/backend/types/overhaul"
+import type { AuthUser } from "@workspace/backend/types/auth"
 import { NotFoundError } from "@workspace/backend/services/errors"
 
 const stageOrder: OverhaulStage[] = [
@@ -25,7 +26,7 @@ export class OverhaulService implements IOverhaulService {
 
   public async createNecesidad(
     input: CreateNecesidadInput,
-    actor: string | null = null,
+    actor: AuthUser | null = null,
   ): Promise<{ id: string }> {
     const overhaul = await this.overhaulRepository.createFromNecesidad(
       input,
@@ -37,12 +38,12 @@ export class OverhaulService implements IOverhaulService {
   public async updateNecesidad(
     id: string,
     input: CreateNecesidadInput,
-    actor: string | null = null,
+    actor: AuthUser | null = null,
   ): Promise<{ id: string }> {
     const overhaul = await this.getOverhaul(id)
     const now = new Date().toISOString()
 
-    overhaul.actor = actor
+    overhaul.actor = actor?.id ?? null
     overhaul.updateNecesidad(input, now)
     await this.overhaulRepository.save(overhaul)
 
@@ -52,12 +53,12 @@ export class OverhaulService implements IOverhaulService {
   public async updateAlcance(
     id: string,
     input: UpdateAlcanceInput,
-    actor: string | null = null,
+    actor: AuthUser | null = null,
   ): Promise<{ id: string }> {
     const overhaul = await this.getOverhaul(id)
 
     const now = new Date().toISOString()
-    overhaul.actor = actor
+    overhaul.actor = actor?.id ?? null
     overhaul.updateAlcance(input, now)
     overhaul.markStageCompleted("alcance", now)
     await this.overhaulRepository.save(overhaul)
@@ -67,12 +68,12 @@ export class OverhaulService implements IOverhaulService {
   public async updatePropuesta(
     id: string,
     input: UpdatePropuestaInput,
-    actor: string | null = null,
+    actor: AuthUser | null = null,
   ): Promise<{ id: string }> {
     const overhaul = await this.getOverhaul(id)
     const now = new Date().toISOString()
 
-    overhaul.actor = actor
+    overhaul.actor = actor?.id ?? null
     overhaul.updatePropuesta(input, now)
     overhaul.markStageCompleted("propuesta", now)
     await this.overhaulRepository.save(overhaul)
@@ -83,12 +84,12 @@ export class OverhaulService implements IOverhaulService {
   public async updateTarifas(
     id: string,
     input: UpdateTarifasInput,
-    actor: string | null = null,
+    actor: AuthUser | null = null,
   ) {
     const overhaul = await this.getOverhaul(id)
 
     const now = new Date().toISOString()
-    overhaul.actor = actor
+    overhaul.actor = actor?.id ?? null
     overhaul.updateTarifas(input, now)
     overhaul.markStageCompleted("tarifas", now)
     await this.overhaulRepository.saveTarifas(overhaul)
@@ -99,12 +100,12 @@ export class OverhaulService implements IOverhaulService {
   public async updateTarifaRepuestos(
     id: string,
     input: UpdateTarifaRepuestosInput,
-    actor: string | null = null,
+    actor: AuthUser | null = null,
   ) {
     const overhaul = await this.getOverhaul(id)
 
     const now = new Date().toISOString()
-    overhaul.actor = actor
+    overhaul.actor = actor?.id ?? null
     overhaul.updateTarifaRepuestos(input, now)
     overhaul.markStageCompleted("tarifas", now)
     await this.overhaulRepository.saveTarifaRepuestos(overhaul)

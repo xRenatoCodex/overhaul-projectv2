@@ -7,6 +7,7 @@ import {
   overhaulService,
 } from "@workspace/backend"
 import { overhaulStageSchema } from "@workspace/backend/lib/validators/overhaul"
+import { getCurrentActor } from "@/lib/current-actor"
 
 export async function GET(
   _request: Request,
@@ -14,6 +15,13 @@ export async function GET(
 ) {
   await ensureBackendSeeded()
   const { id, stage } = await context.params
+  const actor = await getCurrentActor()
+  if (!actor) {
+    return NextResponse.json(
+      { message: "Debe estar logueado para acceder a este recurso" },
+      { status: 401 },
+    )
+  }
 
   const parsed = overhaulStageSchema.safeParse(stage)
   if (!parsed.success) {
